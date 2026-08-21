@@ -1,18 +1,15 @@
 """Portada pública: la primera pantalla que ve quien abre el enlace.
 
-Aquí NO se reserva. Sólo se presenta la barbería (nombre, dónde queda, teléfono,
-horario y un vistazo a los productos) y se ofrecen las dos acciones posibles: pedir
-cita -- que lleva a su propia página -- o ver el catálogo completo.
+Aquí NO se reserva ni se listan los productos. Sólo se presenta la barbería (nombre,
+dónde queda, teléfono y horario) y se ofrecen las dos acciones posibles, cada una con
+su botón y su propia página: pedir cita o ver el catálogo.
 
-Se separó así a propósito: cuando el formulario de reserva vivía en esta misma página,
-bastaba con bajar un poco para toparse con él y el botón "Pide aquí tu cita" no pintaba
-nada. Además la portada quedaba tan larga que en computador no se alcanzaba a ver la
-dirección sin hacer scroll.
+Se separó así a propósito: cuando el formulario de reserva y el catálogo vivían en esta
+misma página, bastaba con bajar un poco para toparse con ellos y los botones no
+pintaban nada. Además la portada quedaba tan larga que en computador no se alcanzaba a
+ver la dirección sin hacer scroll.
 """
-import streamlit as st
-
 from app import db
-from app.productos import PRODUCTOS
 from app.ui import tema
 
 
@@ -39,9 +36,9 @@ def render():
         url_waze=tema.url_waze(negocio.get("address", "")),
     )
 
-    tema.seccion("Nuestros productos", eyebrow="Para el cuidado en casa")
-    tema.tira_productos(PRODUCTOS)
-    st.link_button("Ver el catálogo completo", "/productos", width="stretch")
+    # Los productos NO se listan aquí a propósito: para eso está el botón "Ver nuestros
+    # productos" del hero. Si el catálogo también apareciera abajo, el botón sobraría
+    # -- el mismo motivo por el que la reserva se movió a su propia página.
     tema.pie_de_pagina(negocio)
 
 

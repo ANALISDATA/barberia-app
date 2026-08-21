@@ -83,6 +83,14 @@ def render():
     if st.session_state.get("mostrar_nueva_cita"):
         _formulario_nueva_cita(hoy, libres, duracion)
 
+    # Cerrar sesión también aquí, al final de la página: la flecha del menú lateral es
+    # diminuta y nadie la busca. Este botón se ve y se entiende sin explicación.
+    st.divider()
+    if st.button("Cerrar sesión", width="stretch"):
+        st.session_state["admin_autenticado"] = False
+        st.rerun()
+    tema.pie_de_pagina(db.obtener_negocio())
+
 
 # ---------------------------------------------------------------------------
 # Bloques del panel

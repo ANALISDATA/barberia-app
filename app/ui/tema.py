@@ -68,6 +68,24 @@ h1, h2, h3, h4 {{
     color: {BLANCO_CALIDO} !important;
 }}
 
+/* La barra negra de Streamlit (Share / GitHub / menú) tapaba el logo. Se oculta su
+   contenido y se deja la barra sin alto ni fondo, para que el hero empiece pegado al
+   borde de la pantalla.
+   OJO: no se usa `display:none` en el header porque de ahí cuelga la flecha que abre
+   el menú lateral del panel del administrador -- se perdería la forma de cerrar
+   sesión. Por eso se esconde sólo la botonera y se deja el header sin ocupar espacio. */
+header[data-testid="stHeader"] {{
+    background: transparent !important;
+    height: 0 !important;
+    min-height: 0 !important;
+}}
+header[data-testid="stHeader"] [data-testid="stToolbar"] {{ display: none !important; }}
+[data-testid="stDecoration"] {{ display: none !important; }}
+[data-testid="stStatusWidget"] {{ display: none !important; }}
+/* La app no usa menú lateral: la flecha que lo abre vive dentro de este header y con
+   el header en altura cero queda recortada e imposible de pulsar. Ver la nota en
+   Aplicacion.py -- "Cerrar sesión" está al final del panel, a la vista. */
+
 /* Streamlit deja un hueco arriba del contenido. En la página pública el hero tiene que
    pegar con el borde superior, así que se anula ese hueco -- pero SÓLO el de arriba.
    El margen lateral se conserva a propósito: los widgets de Streamlit (calendario,
@@ -117,10 +135,10 @@ h1, h2, h3, h4 {{
 
 .hero-emblema {{
     display: block;
-    margin: 0 auto 12px;
-    width: clamp(96px, 19vw, 146px);
+    margin: 0 auto 10px;
+    width: clamp(150px, 30vw, 240px);
     height: auto;
-    filter: drop-shadow(0 6px 26px rgba(201,162,39,0.34));
+    filter: drop-shadow(0 8px 32px rgba(201,162,39,0.40));
 }}
 
 /* Logo pequeño al pie de cada página: la marca acompaña sin estorbar. */
@@ -145,14 +163,43 @@ h1, h2, h3, h4 {{
 .hero-nombre {{
     font-family: 'Oswald', 'Arial Narrow', sans-serif !important;
     font-weight: 700 !important;
-    font-size: clamp(28px, 8.4vw, 74px) !important;
-    line-height: 1.02 !important;
-    letter-spacing: 0.015em !important;
+    font-size: clamp(23px, 6.4vw, 54px) !important;
+    line-height: 1.04 !important;
+    letter-spacing: 0.02em !important;
     text-transform: uppercase;
     white-space: nowrap;
-    margin: 0 0 12px !important;
+    margin: 0 0 10px !important;
+    /* Color plano de respaldo. El acabado dorado va abajo, en @supports: si el
+       navegador no supiera recortar el degradado contra las letras, el texto quedaría
+       invisible -- así siempre se ve algo. */
     color: {DORADO_CLARO} !important;
-    text-shadow: 0 0 60px rgba(201,162,39,0.30), 0 2px 2px rgba(0,0,0,0.6);
+    text-shadow: 0 2px 2px rgba(0,0,0,0.6);
+}}
+
+/* Acabado dorado con relieve: la cara de la letra lleva un degradado (del oro claro
+   arriba al oro quemado abajo, con un brillo de vuelta al final, como el metal real) y
+   el volumen se construye apilando sombras que siguen la forma exacta de cada letra.
+   Se usa `drop-shadow` y no `text-shadow` porque con el texto transparente text-shadow
+   pintaría una silueta maciza detrás, no un relieve. */
+@supports (-webkit-background-clip: text) or (background-clip: text) {{
+    .hero-nombre {{
+        background: linear-gradient(
+            177deg,
+            #FFF6D8 0%, #F2DFA0 18%, {DORADO_CLARO} 38%,
+            {DORADO} 58%, #9C7C1B 78%, #E3C878 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent !important;
+        text-shadow: none;
+        filter:
+            drop-shadow(0 1px 0 #8A6C14)
+            drop-shadow(0 2px 0 #6E5510)
+            drop-shadow(0 3px 0 #55410B)
+            drop-shadow(0 7px 14px rgba(0,0,0,0.60))
+            drop-shadow(0 0 38px rgba(201,162,39,0.42));
+    }}
 }}
 
 .hero-cinta {{
@@ -569,37 +616,6 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     border-color: {DORADO};
     color: {DORADO_CLARO} !important;
 }}
-/* Tira de productos de la portada: vistazo rápido al catálogo sin salir de la página */
-.tira {{
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-    gap: 10px;
-    margin-bottom: 14px;
-}}
-.tira-item {{
-    background: {SUPERFICIE};
-    border: 1px solid {LINEA};
-    border-radius: 3px;
-    padding: 9px;
-    text-align: center;
-    text-decoration: none !important;
-    transition: border-color 0.16s ease;
-}}
-.tira-item:hover {{ border-color: rgba(201,162,39,0.6); }}
-.tira-item .foto {{
-    width: 100%; aspect-ratio: 1; background: #FFF;
-    border-radius: 2px; overflow: hidden; margin-bottom: 7px;
-}}
-.tira-item .foto img {{ width: 100%; height: 100%; object-fit: contain; }}
-.tira-item .n {{
-    font-size: 11.5px; line-height: 1.3; color: {GRIS_CALIDO};
-    display: block; margin-bottom: 2px;
-}}
-.tira-item .p {{
-    font-family: 'Oswald', sans-serif;
-    font-size: 14px; font-weight: 600; color: {DORADO_CLARO};
-}}
-
 .cierre-catalogo {{
     text-align: center;
     color: {GRIS_CALIDO};
@@ -853,25 +869,6 @@ def tarjeta_producto(
         f"</div></div>",
         unsafe_allow_html=True,
     )
-
-
-def tira_productos(productos: list[dict], carpeta: str = "assets/productos"):
-    """Vistazo rápido al catálogo en la portada: foto, nombre y precio, y al tocar
-    cualquiera se abre el catálogo completo."""
-    celdas = ""
-    for p in productos:
-        try:
-            src = _imagen_incrustada(f"{carpeta}/{p['imagen']}")
-            foto = f'<div class="foto"><img src="{src}" alt="{p["nombre"]}"></div>'
-        except FileNotFoundError:
-            foto = ""
-        precio = "$" + f"{p['precio']:,.0f}".replace(",", ".")
-        celdas += (
-            f'<a class="tira-item" href="/productos" target="_self">{foto}'
-            f'<span class="n">{p["nombre"]}</span>'
-            f'<span class="p">{precio}</span></a>'
-        )
-    st.markdown(f'<div class="tira">{celdas}</div>', unsafe_allow_html=True)
 
 
 def url_whatsapp(telefono: str, producto: str = "") -> str:
