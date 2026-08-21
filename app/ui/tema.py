@@ -899,19 +899,14 @@ def _logo_html(clase: str = "hero-emblema") -> str:
         return ""
 
 
-def hero_simple(
-    titulo: str,
-    cinta: str = "",
-    frase: str = "",
-    con_logo: bool = True,
-    volver_a: str = "",
-    volver_texto: str = "Inicio",
-):
+def hero_simple(titulo: str, cinta: str = "", frase: str = "", con_logo: bool = True):
     """Portada corta, para páginas internas (cita, catálogo, confirmación). Mismo
     lenguaje visual que la portada principal pero sin la barra de datos del negocio.
 
-    `volver_a` pone un botón flotante arriba a la izquierda para regresar. Se usa en
-    todas las páginas internas: sin él hay que salirse de la app para volver al inicio.
+    El botón de volver NO se pasa por aquí a propósito: vive en `app/ui/volver.py`.
+    Añadirle un parámetro a esta función tumbó la app en producción, porque Streamlit
+    Cloud recarga las páginas pero deja este módulo cacheado en memoria -- ver la
+    explicación completa en `volver.py`.
     """
     cinta_html = (
         f'<div class="hero-cinta"><i></i>{cinta}<i class="der"></i></div>' if cinta else ""
@@ -923,13 +918,8 @@ def hero_simple(
         if con_logo and Path(RUTA_LOGO).exists()
         else ""
     )
-    volver = (
-        f'<a class="hero-volver" href="{volver_a}" target="_self">‹ {volver_texto}</a>'
-        if volver_a
-        else ""
-    )
     st.markdown(
-        f'<div class="hero">{volver}'
+        '<div class="hero">'
         '<div class="hero-inner" style="padding:30px 22px 28px;">'
         f"{logo}"
         f'<h1 class="hero-nombre" style="font-size:clamp(30px,7.5vw,58px)!important;">{titulo}</h1>'

@@ -54,6 +54,32 @@ Python (`date.weekday()`, usado por `disponibilidad.py`) usa **0=lunes**. La con
 (`(dia_bd - 1) % 7`) vive ÚNICAMENTE en `db.py` (`obtener_horario_semanal`,
 `obtener_descansos`). No convertir en ningún otro lado.
 
+## TRAMPA MÁS PELIGROSA: Streamlit Cloud cachea los módulos compartidos
+
+**Esto tumbó la app en producción dos veces el 21/08/2026.** Streamlit Cloud recarga
+los archivos de PÁGINA cuando cambia el código, pero **deja en memoria los módulos que
+ya estaban importados** (`app/ui/tema.py`, `app/navegacion.py`, `app/db.py`...).
+Resultado: la página nueva llama a una función vieja y la app se cae.
+
+- `ImportError: cannot import name 'admin_config'` — `Aplicacion.py` ya pedía el nombre
+  nuevo; `navegacion.py` seguía siendo el de antes en memoria.
+- `TypeError` en `hero_simple(volver_a=...)` — la página ya pasaba el parámetro nuevo y
+  `tema.py` todavía no lo aceptaba.
+
+**No se cura solo**: se probó esperar y siguió caída. Hace falta *Reboot app* desde
+Streamlit Cloud, que sólo puede hacer el usuario.
+
+**Reglas para no repetirlo:**
+
+1. **Cambiar la firma de una función de `tema.py`, `db.py` o `navegacion.py` obliga a
+   reiniciar la app** después de subir. Avisar SIEMPRE al usuario cuando el cambio sea
+   de ese tipo.
+2. Si el cambio tiene que quedar arriba sin reiniciar, meterlo en un **módulo nuevo**:
+   uno que nunca se ha importado no tiene versión vieja en memoria. Así se resolvió el
+   botón de volver (`app/ui/volver.py`) — ver el comentario de ese archivo.
+3. **Después de CADA push, correr `Comprobar_App_En_Linea.py`.** Que las pruebas locales
+   pasen no dice nada sobre si la app está arriba. Esta app tiene que estar 24/7.
+
 ## Trampa ya encontrada: `st.secrets.get()` no es un dict seguro
 
 `st.secrets.get("x")` **lanza** `StreamlitSecretNotFoundError` (no devuelve `None`) si

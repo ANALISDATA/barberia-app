@@ -8,7 +8,7 @@ import streamlit as st
 
 from app import db
 from app.productos import PRODUCTOS
-from app.ui import tema
+from app.ui import tema, volver
 
 
 def _pesos(valor: int) -> str:
@@ -25,8 +25,8 @@ def render():
         titulo="Productos",
         cinta="Para el cuidado en casa",
         frase="Ceras, pomadas y tratamiento. Pregunta por el que quieras y te lo apartamos.",
-        volver_a="/",
     )
+    volver.encima_del_hero()
 
     for producto in PRODUCTOS:
         tema.tarjeta_producto(

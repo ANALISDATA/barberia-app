@@ -14,7 +14,7 @@ import streamlit as st
 
 from app import db
 from app.disponibilidad import horarios_disponibles
-from app.ui import tema
+from app.ui import tema, volver
 from config import NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
 
 PASOS = ["Día", "Servicio", "Hora", "Datos"]
@@ -96,8 +96,8 @@ def render():
         titulo="Pide tu cita",
         cinta=negocio.get("name", ""),
         frase="Elige el día, el servicio y la hora. Toma menos de un minuto.",
-        volver_a="/",
     )
+    volver.encima_del_hero()
 
     hoy = datetime.now(ZONA_HORARIA).date()
 
@@ -238,8 +238,7 @@ def _paso_exito(negocio: dict):
     hora = datetime.strptime(cita["start_time"][:5], "%H:%M").time()
 
     st.markdown(
-        f'<div class="hero">'
-        f'<a class="hero-volver" href="/" target="_self">‹ Inicio</a>'
+        f'<div class="hero">{volver.html()}'
         f'<div class="hero-inner" style="padding-bottom:34px;">'
         f'<div class="hero-cinta"><i></i>Cita confirmada<i class="der"></i></div>'
         f'<h1 class="hero-nombre" style="font-size:clamp(34px,8vw,60px)!important;">'
