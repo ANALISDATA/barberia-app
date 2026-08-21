@@ -44,6 +44,25 @@ def _consola_utf8():
         sys.stdout.reconfigure(encoding="utf-8")
 
 
+def _texto_de_la_app(pagina) -> str:
+    """Todo el texto que se ve, mirando también DENTRO de los marcos internos.
+
+    Streamlit Cloud no dibuja la app en la página principal: la mete en un marco
+    (iframe) aparte. Si se mira sólo la página de fuera se ve vacía y se da la app
+    por caída aunque esté perfecta -- esta comprobación llegó a dar esa falsa alarma.
+    """
+    partes = []
+    for marco in pagina.frames:
+        # El marco de la página de estado de Streamlit no es parte de la app.
+        if "statuspage.io" in marco.url:
+            continue
+        try:
+            partes.append(marco.evaluate("document.body ? document.body.innerText : ''"))
+        except Exception:
+            continue
+    return "\n".join(p for p in partes if p).lower()
+
+
 def _revisar_con_navegador() -> list[str] | None:
     """Devuelve la lista de páginas con problema, o None si no hay navegador."""
     try:
@@ -61,10 +80,10 @@ def _revisar_con_navegador() -> list[str] | None:
         for ruta, etiqueta in RUTAS.items():
             pagina = contexto.new_page()
             try:
-                pagina.goto(f"{URL_BASE}/{ruta}", wait_until="networkidle", timeout=60000)
+                pagina.goto(f"{URL_BASE}/{ruta}", wait_until="domcontentloaded", timeout=60000)
                 # La app tarda en despertar si llevaba rato sin visitas.
-                pagina.wait_for_timeout(9000)
-                texto = pagina.inner_text("body").lower()
+                pagina.wait_for_timeout(12000)
+                texto = _texto_de_la_app(pagina)
             except Exception as err:
                 print(f"  ✖ {etiqueta:<12} no cargó ({type(err).__name__})")
                 problemas.append(etiqueta)
