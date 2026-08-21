@@ -6,7 +6,7 @@ import streamlit as st
 from app import db
 from app.disponibilidad import horarios_disponibles, proximo_espacio
 from app.ui import tema
-from config import NOMBRES_SERVICIO, ZONA_HORARIA
+from config import NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
 
 
 def _pesos(valor: int) -> str:
@@ -41,7 +41,7 @@ def render():
 
     saludo = "Buenos días" if ahora.hour < 12 else ("Buenas tardes" if ahora.hour < 19 else "Buenas noches")
     st.markdown(f"### {saludo} 👋")
-    st.caption(hoy.strftime("%A %d de %B, %Y").capitalize())
+    st.caption(fecha_larga(hoy))
 
     st.markdown("##### Próximo espacio")
     if siguiente:

@@ -121,6 +121,13 @@ html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
     margin-bottom: 6px;
 }}
 .info-col .valor {{ color: #E7ECF2; font-size: 15px; font-weight: 500; }}
+.info-col a.valor-enlace {{
+    display: inline-block;
+    text-decoration: none !important;
+    border-bottom: 1px dashed {DORADO};
+    transition: color 0.15s ease, border-color 0.15s ease;
+}}
+.info-col a.valor-enlace:hover {{ color: {DORADO_CLARO} !important; border-color: {DORADO_CLARO}; }}
 
 .tarjeta {{
     background: {SUPERFICIE};
@@ -184,9 +191,13 @@ def hero_publico(negocio: dict, resumen_horario: str = ""):
 
     columnas = ""
     if negocio.get("address"):
+        from urllib.parse import quote
+
+        enlace_waze = f"https://waze.com/ul?q={quote(negocio['address'])}&navigate=yes"
         columnas += (
             f'<div class="info-col"><div class="etiqueta">Dirección</div>'
-            f'<div class="valor">{negocio["address"]}</div></div>'
+            f'<a class="valor valor-enlace" href="{enlace_waze}" target="_blank" '
+            f'rel="noopener">{negocio["address"]} ↗</a></div>'
         )
     if negocio.get("phone"):
         columnas += (

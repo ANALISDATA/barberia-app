@@ -5,17 +5,16 @@ Se llama `Aplicacion.py` y no `app.py` a propósito, para no chocar con el paque
 """
 import streamlit as st
 
+from app.navegacion import admin_inicio, admin_login, reservar
+
 st.set_page_config(page_title="Barbería", page_icon="💈", layout="centered")
 
-reservar = st.Page(
-    "app/paginas/reservar.py", title="Reservar", icon="💈", default=True, url_path="",
-)
-admin_login = st.Page(
-    "app/paginas/admin_login.py", title="Panel", icon="🔒", url_path="admin",
-)
-admin_inicio = st.Page(
-    "app/paginas/admin_inicio.py", title="Inicio", icon="🏠", url_path="panel",
-)
+# admin_login (/admin) y admin_inicio (/panel) tienen URLs distintas a proposito.
+# Probado en vivo: Streamlit no deja que dos paginas compartan un url_path, ni
+# siquiera turnandose segun el estado de sesion -- revienta con "a different page is
+# registered for this URL". Por eso admin_login.py cambia de pagina con
+# st.switch_page() explicito al loguearse (ver ese archivo), en vez de confiar en que
+# la URL "/admin" vaya a coincidir sola con la pagina correcta despues del rerun.
 
 # El cliente que reserva nunca debe ver un enlace al panel del administrador -- por
 # eso la navegacion de arriba se oculta del todo (position="hidden") y no se pone
@@ -27,7 +26,7 @@ if st.session_state.get("admin_autenticado"):
         st.page_link(admin_inicio, label="Inicio")
         if st.button("Cerrar sesión"):
             st.session_state["admin_autenticado"] = False
-            st.rerun()
+            st.switch_page(reservar)
     paginas = [reservar, admin_inicio]
 else:
     paginas = [reservar, admin_login]
