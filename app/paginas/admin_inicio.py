@@ -75,12 +75,10 @@ def render():
     tema.saludo(f"{saludo} 👋", fecha_larga(hoy))
 
     _bloque_proximo_espacio(siguiente, libres, duracion)
-    _bloque_proximas_citas(citas_hoy, ahora)
-    _bloque_jornada(hoy, horario_semanal, descansos, excepciones, citas_hoy, duracion)
+    _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion)
     _bloque_hoy(citas_hoy, libres)
     _bloque_semana(hoy)
     _bloque_mes(hoy)
-    _bloque_todas_las_citas(citas_hoy)
 
     if st.session_state.get("mostrar_nueva_cita"):
         _formulario_nueva_cita(hoy, libres, duracion)
@@ -112,91 +110,159 @@ def _bloque_proximo_espacio(siguiente, libres, duracion):
         st.rerun()
 
 
-def _bloque_proximas_citas(citas_hoy, ahora):
-    tema.seccion("Próximas citas", eyebrow="Lo que viene hoy", compacta=True)
+def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion):
+    """Agenda del día en DOS tablas separadas: lo reservado y lo que queda libre.
 
-    pendientes = [
-        c for c in citas_hoy
-        if c["status"] == "confirmada" and c["start_time"] >= ahora.strftime("%H:%M:%S")
-    ]
-    if not pendientes:
-        tema.aviso_vacio("No hay más citas confirmadas por hoy.")
-        return
-
-    for c in pendientes[:6]:
-        hora = datetime.strptime(c["start_time"][:5], "%H:%M").time()
-        nombre = (c.get("customers") or {}).get("name", "—")
-        servicio = NOMBRES_SERVICIO.get(c["service_type"], c["service_type"])
-        tema.fila_cita(
-            _hora_bonita(hora).replace(" a.m.", "").replace(" p.m.", ""),
-            nombre,
-            f'{servicio} · {_pesos(c["price_at_booking"])}',
-        )
-
-
-def _bloque_jornada(hoy, horario_semanal, descansos, excepciones, citas_hoy, duracion):
-    """La agenda del día completa, de la apertura al cierre, sin filtrar por la hora
-    actual: cada bloque con su cita o marcado como libre, y los descansos en su sitio.
-
-    Es la forma de comprobar de un vistazo que las citas van pegadas una detrás de otra
-    y que el único rato muerto es el descanso.
+    Van separadas a propósito (y no en una sola lista mezclada) porque casi nunca se
+    necesitan las dos a la vez: o se está mirando a quién hay que atender, o se está
+    buscando un hueco para meter a alguien que acaba de llegar. Se elige con un toque
+    y se puede cambiar de día sin salir de la sección.
     """
+    tema.seccion("Agenda", eyebrow="Elige el día", compacta=True)
+    fecha = _selector_de_dia(hoy)
+
     bloques, huecos = analizar_jornada(
-        hoy, horario_semanal, descansos, excepciones, duracion
+        fecha, horario_semanal, descansos, excepciones, duracion
     )
     if not bloques:
+        tema.aviso_vacio("Ese día la barbería no abre.")
         return
 
-    tema.seccion("Tu jornada", eyebrow=f"{len(bloques)} cortes caben hoy", compacta=True)
+    citas = db.obtener_citas_del_dia(fecha)
+    reservadas = [c for c in citas if c["status"] != "cancelada"]
+    ocupadas = [
+        (time.fromisoformat(c["start_time"]), time.fromisoformat(c["end_time"]))
+        for c in reservadas
+    ]
+    # El filtro por hora actual sólo aplica a hoy: en un día futuro todas las horas
+    # siguen siendo válidas por más tarde que sea ahora mismo.
+    libres = horarios_disponibles(
+        fecha, horario_semanal, descansos, excepciones, ocupadas,
+        ahora=ahora if fecha == hoy else None, duracion=duracion,
+    )
 
-    # Los huecos que se tocan se muestran como uno solo: si sobran 30 minutos justo
-    # antes del almuerzo, se ven como parte del almuerzo y no como un rato suelto.
-    muertos = descansos_efectivos(hoy, horario_semanal, descansos, excepciones, duracion)
+    st.caption(f"Ese día caben {len(bloques)} cortes en total.")
+    vista = _selector_de_vista(len(reservadas), len(libres))
 
-    por_hora = {
-        time.fromisoformat(c["start_time"]): c
-        for c in citas_hoy
-        if c["status"] != "cancelada"
-    }
+    if vista == "reservadas":
+        _tabla_reservadas(reservadas, fecha, hoy)
+    else:
+        _tabla_disponibles(libres, fecha, hoy, duracion)
 
-    with st.expander("Ver la agenda de hoy hora por hora"):
-        pendientes = list(muertos)
-        for bloque in bloques:
-            while pendientes and pendientes[0][0] <= bloque.inicio:
-                inicio_m, fin_m = pendientes.pop(0)
-                tema.fila_descanso(
-                    f"{inicio_m.strftime('%H:%M')} – {fin_m.strftime('%H:%M')}", "Descanso"
-                )
-
-            cita = por_hora.get(bloque.inicio)
-            if cita:
-                nombre = (cita.get("customers") or {}).get("name", "—")
-                servicio = NOMBRES_SERVICIO.get(cita["service_type"], cita["service_type"])
-                tema.fila_cita(
-                    bloque.inicio.strftime("%H:%M"),
-                    nombre,
-                    f'{servicio} · {_pesos(cita["price_at_booking"])}',
-                    tema.pildora_estado(cita["status"]),
-                )
-            else:
-                tema.fila_cita(
-                    bloque.inicio.strftime("%H:%M"),
-                    "Libre",
-                    f"{duracion} minutos disponibles",
-                    libre=True,
-                )
-        for inicio_m, fin_m in pendientes:
-            tema.fila_descanso(
-                f"{inicio_m.strftime('%H:%M')} – {fin_m.strftime('%H:%M')}", "Descanso"
-            )
+    muertos = descansos_efectivos(fecha, horario_semanal, descansos, excepciones, duracion)
+    for inicio_m, fin_m in muertos:
+        tema.fila_descanso(
+            f"{inicio_m.strftime('%H:%M')} – {fin_m.strftime('%H:%M')}", "Descanso"
+        )
 
     sobrante = sum(h.minutos for h in huecos if not h.es_descanso)
     if sobrante:
         st.caption(
-            f"Nota: tu horario deja {sobrante} minutos que no alcanzan para otro corte "
-            f"de {duracion}. Se suman al descanso para que no queden sueltos a mitad "
-            "del día."
+            f"Tu horario deja {sobrante} minutos que no alcanzan para otro corte de "
+            f"{duracion}. Se suman al descanso para que no queden sueltos a mitad del día."
         )
+
+
+def _selector_de_dia(hoy):
+    """Días de la semana actual, de lunes a domingo. Arranca en el día de hoy."""
+    lunes = hoy - timedelta(days=hoy.weekday())
+    dias = [lunes + timedelta(days=i) for i in range(7)]
+
+    etiquetas = {d: f"{NOMBRES_DIA[d.weekday()][:3]} {d.day}" for d in dias}
+    elegido = st.segmented_control(
+        "Día",
+        options=dias,
+        format_func=lambda d: etiquetas[d],
+        default=hoy if hoy in dias else dias[0],
+        key="agenda_dia",
+        label_visibility="collapsed",
+    )
+    # segmented_control devuelve None si el usuario deselecciona: se vuelve a hoy en
+    # vez de quedar sin ningún día, que dejaría la sección en blanco sin explicación.
+    return elegido or hoy
+
+
+def _selector_de_vista(n_reservadas, n_libres):
+    """Dos botones grandes con su cifra. El que está activo se ve en dorado."""
+    if "vista_agenda" not in st.session_state:
+        st.session_state["vista_agenda"] = "disponibles"
+
+    actual = st.session_state["vista_agenda"]
+    col_r, col_d = st.columns(2)
+    if col_r.button(
+        f"Reservadas · {n_reservadas}",
+        width="stretch",
+        type="primary" if actual == "reservadas" else "secondary",
+    ):
+        st.session_state["vista_agenda"] = "reservadas"
+        st.rerun()
+    if col_d.button(
+        f"Disponibles · {n_libres}",
+        width="stretch",
+        type="primary" if actual == "disponibles" else "secondary",
+    ):
+        st.session_state["vista_agenda"] = "disponibles"
+        st.rerun()
+    return st.session_state["vista_agenda"]
+
+
+def _tabla_reservadas(reservadas, fecha, hoy):
+    if not reservadas:
+        tema.aviso_vacio("No hay citas reservadas ese día.")
+        return
+
+    for c in sorted(reservadas, key=lambda x: x["start_time"]):
+        hora = time.fromisoformat(c["start_time"])
+        nombre = (c.get("customers") or {}).get("name", "—")
+        telefono = (c.get("customers") or {}).get("phone", "")
+        servicio = NOMBRES_SERVICIO.get(c["service_type"], c["service_type"])
+        tema.fila_cita(
+            hora.strftime("%H:%M"),
+            nombre,
+            f'{servicio} · {_pesos(c["price_at_booking"])} · {telefono}',
+            tema.pildora_estado(c["status"]),
+        )
+        # Las acciones sólo tienen sentido mientras la cita siga pendiente.
+        if c["status"] == "confirmada":
+            col_a, col_b, col_c = st.columns(3)
+            if col_a.button("Atendida", key=f"at_{c['id']}", width="stretch"):
+                db.cambiar_estado_cita(c["id"], "atendida")
+                st.rerun()
+            if col_b.button("No asistió", key=f"na_{c['id']}", width="stretch"):
+                db.cambiar_estado_cita(c["id"], "no_asistio")
+                st.rerun()
+            if col_c.button("Cancelar", key=f"ca_{c['id']}", width="stretch"):
+                db.cambiar_estado_cita(
+                    c["id"], "cancelada", motivo="Cancelada por el administrador"
+                )
+                st.rerun()
+
+
+def _tabla_disponibles(libres, fecha, hoy, duracion):
+    if not libres:
+        tema.aviso_vacio(
+            "No quedan horas libres ese día."
+            if fecha == hoy
+            else "Ese día está lleno."
+        )
+        return
+
+    for franja in libres:
+        tema.fila_cita(
+            franja.inicio.strftime("%H:%M"),
+            "Libre",
+            f"hasta las {franja.fin.strftime('%H:%M')} · {duracion} minutos",
+            libre=True,
+        )
+        # Sólo se puede agendar en el día de hoy desde aquí: el formulario rápido está
+        # pensado para el cliente que llega a la barbería en ese momento.
+        if fecha == hoy:
+            if st.button(
+                "＋ Agendar en esta hora", key=f"ag_{franja.inicio}", width="stretch"
+            ):
+                st.session_state["nueva_cita_hora_sugerida"] = franja.inicio
+                st.session_state["mostrar_nueva_cita"] = True
+                st.rerun()
 
 
 def _bloque_hoy(citas_hoy, libres):
@@ -279,40 +345,6 @@ def _bloque_mes(hoy):
         ("Sin barba", str(sin_barba), ""),
         ("Con barba", str(con_barba), ""),
     ])
-
-
-def _bloque_todas_las_citas(citas_hoy):
-    if not citas_hoy:
-        return
-
-    with st.expander(f"Ver y gestionar las {len(citas_hoy)} citas de hoy"):
-        for c in citas_hoy:
-            hora = datetime.strptime(c["start_time"][:5], "%H:%M").time()
-            nombre = (c.get("customers") or {}).get("name", "—")
-            telefono = (c.get("customers") or {}).get("phone", "")
-            servicio = NOMBRES_SERVICIO.get(c["service_type"], c["service_type"])
-
-            st.markdown(
-                f'<div class="fila-cita"><span class="hora">'
-                f'{_hora_bonita(hora).replace(" a.m.", "").replace(" p.m.", "")}</span>'
-                f'<span class="quien">{nombre}<br><span class="que">{servicio} · '
-                f'{_pesos(c["price_at_booking"])} · {telefono}</span></span>'
-                f'{tema.pildora_estado(c["status"])}</div>',
-                unsafe_allow_html=True,
-            )
-            if c["status"] == "confirmada":
-                col_a, col_b, col_c = st.columns(3)
-                if col_a.button("Atendida", key=f"at_{c['id']}", width="stretch"):
-                    db.cambiar_estado_cita(c["id"], "atendida")
-                    st.rerun()
-                if col_b.button("No asistió", key=f"na_{c['id']}", width="stretch"):
-                    db.cambiar_estado_cita(c["id"], "no_asistio")
-                    st.rerun()
-                if col_c.button("Cancelar", key=f"ca_{c['id']}", width="stretch"):
-                    db.cambiar_estado_cita(
-                        c["id"], "cancelada", motivo="Cancelada por el administrador"
-                    )
-                    st.rerun()
 
 
 def _formulario_nueva_cita(hoy, libres, duracion):

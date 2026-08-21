@@ -14,7 +14,9 @@ Corre con:  python -m pytest tests/test_paginas_sin_conexion.py -v
 from streamlit.testing.v1 import AppTest
 
 PAGINAS = [
-    "app/paginas/reservar.py",
+    "app/paginas/inicio.py",
+    "app/paginas/cita.py",
+    "app/paginas/productos.py",
     "app/paginas/admin_login.py",
     "app/paginas/admin_inicio.py",
 ]

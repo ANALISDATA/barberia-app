@@ -49,7 +49,11 @@ def render():
             type="primary",
         )
 
-    st.page_link("app/paginas/reservar.py", label="← Volver a pedir cita")
+    # Enlace normal en vez de st.page_link: page_link exige que la página esté
+    # registrada por st.navigation, y revienta si este archivo se ejecuta suelto
+    # (como hacen las pruebas). Una URL simple funciona en los dos casos.
+    st.link_button("← Volver al inicio", "/", width="stretch")
+    tema.pie_de_pagina(negocio)
 
 
 render()

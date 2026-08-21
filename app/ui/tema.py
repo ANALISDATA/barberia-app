@@ -13,6 +13,8 @@ Dos cosas aprendidas probando en el navegador y que hay que respetar al tocar es
    antes de que corra este archivo, para pintar sus widgets). Si se cambia la paleta aquí,
    hay que cambiarla también allá o quedan dos temas peleando.
 """
+from pathlib import Path
+
 import streamlit as st
 
 # ---------------------------------------------------------------------------
@@ -108,30 +110,55 @@ h1, h2, h3, h4 {{
     position: relative;
     z-index: 2;
     text-align: center;
-    padding: 62px 22px 46px;
-    max-width: 760px;
+    padding: 34px 22px 30px;
+    max-width: 860px;
     margin: 0 auto;
 }}
 
-.hero-emblema {{ margin: 0 auto 24px; display: block; }}
+.hero-emblema {{
+    display: block;
+    margin: 0 auto 12px;
+    width: clamp(96px, 19vw, 146px);
+    height: auto;
+    filter: drop-shadow(0 6px 26px rgba(201,162,39,0.34));
+}}
 
+/* Logo pequeño al pie de cada página: la marca acompaña sin estorbar. */
+.pie-logo {{
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px;
+    margin: 40px 0 8px;
+    padding-top: 22px;
+    border-top: 1px solid {LINEA};
+}}
+.pie-logo img {{ width: 54px; height: auto; opacity: 0.85; }}
+.pie-logo span {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.28em; text-indent: 0.28em; text-transform: uppercase;
+    color: {GRIS_TENUE};
+}}
+
+/* El nombre va SIEMPRE en una sola línea: se mide en vw (ancho de pantalla) para que
+   se encoja solo en vez de partirse en dos. Así la portada ocupa menos alto y en
+   computador caben también la dirección, el horario y los productos sin bajar. */
 .hero-nombre {{
     font-family: 'Oswald', 'Arial Narrow', sans-serif !important;
     font-weight: 700 !important;
-    font-size: clamp(46px, 12vw, 96px) !important;
-    line-height: 0.94 !important;
+    font-size: clamp(28px, 8.4vw, 74px) !important;
+    line-height: 1.02 !important;
     letter-spacing: 0.015em !important;
     text-transform: uppercase;
-    margin: 0 0 16px !important;
+    white-space: nowrap;
+    margin: 0 0 12px !important;
     color: {DORADO_CLARO} !important;
     text-shadow: 0 0 60px rgba(201,162,39,0.30), 0 2px 2px rgba(0,0,0,0.6);
-    text-wrap: balance;
 }}
 
 .hero-cinta {{
     display: flex; align-items: center; justify-content: center;
     gap: 16px;
-    margin-bottom: 26px;
+    margin-bottom: 18px;
     font-family: 'Oswald', sans-serif;
     font-weight: 400;
     font-size: 13px;
@@ -151,11 +178,11 @@ h1, h2, h3, h4 {{
     font-family: 'Cormorant Garamond', Georgia, serif !important;
     font-style: italic;
     font-weight: 400;
-    font-size: clamp(19px, 2.6vw, 25px) !important;
-    line-height: 1.45 !important;
+    font-size: clamp(17px, 2.2vw, 22px) !important;
+    line-height: 1.4 !important;
     color: #CFC8BC !important;
-    max-width: 30ch;
-    margin: 0 auto 34px !important;
+    max-width: 34ch;
+    margin: 0 auto 24px !important;
     text-wrap: balance;
 }}
 
@@ -542,6 +569,37 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     border-color: {DORADO};
     color: {DORADO_CLARO} !important;
 }}
+/* Tira de productos de la portada: vistazo rápido al catálogo sin salir de la página */
+.tira {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}}
+.tira-item {{
+    background: {SUPERFICIE};
+    border: 1px solid {LINEA};
+    border-radius: 3px;
+    padding: 9px;
+    text-align: center;
+    text-decoration: none !important;
+    transition: border-color 0.16s ease;
+}}
+.tira-item:hover {{ border-color: rgba(201,162,39,0.6); }}
+.tira-item .foto {{
+    width: 100%; aspect-ratio: 1; background: #FFF;
+    border-radius: 2px; overflow: hidden; margin-bottom: 7px;
+}}
+.tira-item .foto img {{ width: 100%; height: 100%; object-fit: contain; }}
+.tira-item .n {{
+    font-size: 11.5px; line-height: 1.3; color: {GRIS_CALIDO};
+    display: block; margin-bottom: 2px;
+}}
+.tira-item .p {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 14px; font-weight: 600; color: {DORADO_CLARO};
+}}
+
 .cierre-catalogo {{
     text-align: center;
     color: {GRIS_CALIDO};
@@ -623,22 +681,15 @@ h1 a, h2 a, h3 a, .stMarkdown a[href^="#"] svg {{ display: none !important; }}
 </style>
 """
 
-# Emblema e iconos, dibujados a mano en SVG (no son imágenes externas: así nunca fallan
+# Los iconos van dibujados a mano en SVG (no son imágenes externas: así nunca fallan
 # por falta de conexión y se ven nítidos en cualquier pantalla).
 #
 # Van en UNA sola línea a propósito, igual que el resto del HTML de este archivo: un
 # salto de línea seguido de espacios convierte el bloque en código para el Markdown de
 # Streamlit y el SVG saldría escrito como texto. Ver la nota en `hero_publico`.
-_EMBLEMA = (
-    '<svg class="hero-emblema" width="78" height="78" viewBox="0 0 120 120" fill="none"'
-    ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-    f'<path d="M60 3 L117 60 L60 117 L3 60 Z" stroke="{DORADO}" stroke-width="1.6" opacity="0.95"/>'
-    f'<path d="M60 15 L105 60 L60 105 L15 60 Z" stroke="{DORADO}" stroke-width="0.8" opacity="0.42"/>'
-    f'<g stroke="{DORADO_CLARO}" stroke-width="2.4" stroke-linecap="round" fill="none">'
-    '<line x1="46" y1="36" x2="74" y2="72"/><line x1="74" y1="36" x2="46" y2="72"/>'
-    '<circle cx="43" cy="80" r="6.4" stroke-width="2"/>'
-    '<circle cx="77" cy="80" r="6.4" stroke-width="2"/></g></svg>'
-)
+
+RUTA_LOGO = "assets/logo.png"
+RUTA_LOGO_PEQUENO = "assets/logo-pequeno.png"
 
 _ICONO_PIN = (
     '<svg class="barra-icono" width="21" height="21" viewBox="0 0 24 24" fill="none"'
@@ -712,28 +763,59 @@ def hero_publico(negocio: dict, resumen_horario: str = "", url_waze: str = ""):
     # en el navegador. No "ordenar" esto con indentación bonita.
     st.markdown(
         '<div class="hero"><div class="hero-inner">'
-        f"{_EMBLEMA}"
+        f"{_logo_html()}"
         f'<h1 class="hero-nombre">{nombre}</h1>'
         '<div class="hero-cinta"><i></i>Barbería<i class="der"></i></div>'
         f'<p class="hero-tagline">{descripcion}</p>'
-        '<a class="hero-cta" href="#reservar">Pide aquí tu cita</a>'
+        '<a class="hero-cta" href="/cita" target="_self">Pide aquí tu cita</a>'
         '<a class="hero-cta2" href="/productos" target="_self">Ver nuestros productos</a>'
         f"</div>{barra}</div>",
         unsafe_allow_html=True,
     )
 
 
-def hero_simple(titulo: str, cinta: str = "", frase: str = ""):
-    """Portada corta, para páginas internas (catálogo, confirmación). Mismo lenguaje
-    visual que la portada principal pero sin emblema ni barra de datos."""
+def _logo_html(clase: str = "hero-emblema") -> str:
+    """El logo del negocio, incrustado en el HTML. Si el archivo no está, se devuelve
+    vacío: la página sigue funcionando, sólo sin logo."""
+    try:
+        return f'<img class="{clase}" src="{_imagen_incrustada(RUTA_LOGO)}" alt="Logo">'
+    except FileNotFoundError:
+        return ""
+
+
+def hero_simple(titulo: str, cinta: str = "", frase: str = "", con_logo: bool = True):
+    """Portada corta, para páginas internas (cita, catálogo, confirmación). Mismo
+    lenguaje visual que la portada principal pero sin la barra de datos del negocio."""
     cinta_html = (
         f'<div class="hero-cinta"><i></i>{cinta}<i class="der"></i></div>' if cinta else ""
     )
     frase_html = f'<p class="hero-tagline">{frase}</p>' if frase else ""
+    logo = (
+        f'<img class="hero-emblema" style="width:clamp(64px,12vw,92px);"'
+        f' src="{_imagen_incrustada(RUTA_LOGO)}" alt="Logo">'
+        if con_logo and Path(RUTA_LOGO).exists()
+        else ""
+    )
     st.markdown(
-        '<div class="hero"><div class="hero-inner" style="padding:44px 22px 36px;">'
-        f'<h1 class="hero-nombre" style="font-size:clamp(38px,9vw,68px)!important;">{titulo}</h1>'
+        '<div class="hero"><div class="hero-inner" style="padding:30px 22px 28px;">'
+        f"{logo}"
+        f'<h1 class="hero-nombre" style="font-size:clamp(30px,7.5vw,58px)!important;">{titulo}</h1>'
         f"{cinta_html}{frase_html}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def pie_de_pagina(negocio: dict | None = None):
+    """Logo pequeño y nombre al final de cada página, para que la marca esté presente
+    en todas sin robar espacio arriba."""
+    try:
+        src = _imagen_incrustada(RUTA_LOGO_PEQUENO)
+    except FileNotFoundError:
+        return
+    nombre = (negocio or {}).get("name", "")
+    st.markdown(
+        f'<div class="pie-logo"><img src="{src}" alt="Logo">'
+        f"<span>{nombre or 'Estilo y calidad'}</span></div>",
         unsafe_allow_html=True,
     )
 
@@ -771,6 +853,25 @@ def tarjeta_producto(
         f"</div></div>",
         unsafe_allow_html=True,
     )
+
+
+def tira_productos(productos: list[dict], carpeta: str = "assets/productos"):
+    """Vistazo rápido al catálogo en la portada: foto, nombre y precio, y al tocar
+    cualquiera se abre el catálogo completo."""
+    celdas = ""
+    for p in productos:
+        try:
+            src = _imagen_incrustada(f"{carpeta}/{p['imagen']}")
+            foto = f'<div class="foto"><img src="{src}" alt="{p["nombre"]}"></div>'
+        except FileNotFoundError:
+            foto = ""
+        precio = "$" + f"{p['precio']:,.0f}".replace(",", ".")
+        celdas += (
+            f'<a class="tira-item" href="/productos" target="_self">{foto}'
+            f'<span class="n">{p["nombre"]}</span>'
+            f'<span class="p">{precio}</span></a>'
+        )
+    st.markdown(f'<div class="tira">{celdas}</div>', unsafe_allow_html=True)
 
 
 def url_whatsapp(telefono: str, producto: str = "") -> str:

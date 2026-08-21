@@ -9,8 +9,11 @@ importan los mismos objetos de aqui, en vez de que cada uno cree los suyos.
 """
 import streamlit as st
 
-reservar = st.Page(
-    "app/paginas/reservar.py", title="Reservar", icon="💈", default=True, url_path="",
+inicio = st.Page(
+    "app/paginas/inicio.py", title="Inicio", icon="💈", default=True, url_path="",
+)
+cita = st.Page(
+    "app/paginas/cita.py", title="Pedir cita", icon="📅", url_path="cita",
 )
 productos = st.Page(
     "app/paginas/productos.py", title="Productos", icon="🧴", url_path="productos",

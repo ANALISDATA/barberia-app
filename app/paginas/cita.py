@@ -1,4 +1,8 @@
-"""Página pública: el cliente reserva su cita en pocos pasos, sin crear cuenta.
+"""Página de reserva: el cliente pide su cita en pocos pasos, sin crear cuenta.
+
+Vive en su propia página (`/cita`), separada de la portada: así el botón "Pide aquí tu
+cita" lleva de verdad a algún lado, y la portada no queda tan larga que haya que bajar
+para ver la dirección.
 
 Pensada para celular primero: una sola columna, botones grandes, y sólo se muestra el
 paso siguiente cuando el anterior está resuelto (elegir día y servicio -> ver horas ->
@@ -29,12 +33,9 @@ def _hora_compacta(t) -> str:
 
 
 def _sin_conexion():
-    st.markdown(
-        '<div class="hero"><div class="hero-inner">'
-        '<h1 class="hero-nombre">Ya volvemos</h1>'
-        '<p class="hero-tagline">Estamos alistando la agenda. Inténtalo en unos minutos.</p>'
-        "</div></div>",
-        unsafe_allow_html=True,
+    tema.hero_simple(
+        titulo="Ya volvemos",
+        frase="Estamos alistando la agenda. Inténtalo en unos minutos.",
     )
 
 
@@ -60,13 +61,11 @@ def render():
     horario_semanal = db.obtener_horario_semanal()
     duracion = db.obtener_duracion_cita()
 
-    tema.hero_publico(
-        negocio,
-        resumen_horario=tema.resumen_horario_texto(horario_semanal),
-        url_waze=tema.url_waze(negocio.get("address", "")),
+    tema.hero_simple(
+        titulo="Pide tu cita",
+        cinta=negocio.get("name", ""),
+        frase="Elige el día, el servicio y la hora. Toma menos de un minuto.",
     )
-
-    tema.seccion("Reserva tu cita", eyebrow="Elige día y servicio", ancla="reservar")
 
     hoy = datetime.now(ZONA_HORARIA).date()
     fecha = st.date_input(
@@ -104,6 +103,7 @@ def render():
         tema.aviso_vacio(
             "No quedan horas disponibles ese día.<br>Prueba con otra fecha."
         )
+        tema.pie_de_pagina(negocio)
         return
 
     # Si cambia el día, la hora elegida antes deja de tener sentido.
@@ -127,6 +127,7 @@ def render():
 
     hora_elegida = st.session_state.get("reserva_hora")
     if not hora_elegida:
+        tema.pie_de_pagina(negocio)
         return
 
     tema.seccion("Tus datos", eyebrow=f"{fecha_larga(fecha)} · {_hora_bonita(hora_elegida)}")
@@ -216,6 +217,7 @@ def _paso_exito(negocio: dict):
     if st.button("Reservar otra cita", width="stretch"):
         _reiniciar()
         st.rerun()
+    tema.pie_de_pagina(negocio)
 
 
 render()
