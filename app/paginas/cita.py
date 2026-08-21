@@ -96,6 +96,7 @@ def render():
         titulo="Pide tu cita",
         cinta=negocio.get("name", ""),
         frase="Elige el día, el servicio y la hora. Toma menos de un minuto.",
+        volver_a="/",
     )
 
     hoy = datetime.now(ZONA_HORARIA).date()
@@ -237,7 +238,9 @@ def _paso_exito(negocio: dict):
     hora = datetime.strptime(cita["start_time"][:5], "%H:%M").time()
 
     st.markdown(
-        f'<div class="hero"><div class="hero-inner" style="padding-bottom:34px;">'
+        f'<div class="hero">'
+        f'<a class="hero-volver" href="/" target="_self">‹ Inicio</a>'
+        f'<div class="hero-inner" style="padding-bottom:34px;">'
         f'<div class="hero-cinta"><i></i>Cita confirmada<i class="der"></i></div>'
         f'<h1 class="hero-nombre" style="font-size:clamp(34px,8vw,60px)!important;">'
         f'¡Nos vemos!</h1>'

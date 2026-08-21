@@ -37,6 +37,14 @@ def render():
         st.warning("No hay conexión con Supabase.")
         return
 
+    # Arriba y abajo: arriba para volver sin leer toda la página, abajo para cuando ya
+    # se terminó de configurar. Va con st.switch_page y no con un enlace porque un
+    # enlace recarga la página y se pierde la sesión de administrador.
+    if st.button("‹ Volver al panel", key="volver_arriba"):
+        from app.navegacion import admin_inicio
+
+        st.switch_page(admin_inicio)
+
     tema.saludo("Configuración", "Ajusta tu barbería a tu medida")
 
     _bloque_duracion()

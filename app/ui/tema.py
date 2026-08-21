@@ -133,6 +133,32 @@ header[data-testid="stHeader"] [data-testid="stToolbar"] {{ display: none !impor
     margin: 0 auto;
 }}
 
+/* Botón de volver, arriba a la izquierda del hero. Va DENTRO del hero y flotando
+   para que se vea nada más entrar, sin bajar ni buscar: antes había que salirse de la
+   página para regresar al inicio. */
+.hero-volver {{
+    position: absolute;
+    top: 12px; left: 12px;
+    z-index: 5;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: {DORADO_CLARO} !important;
+    text-decoration: none !important;
+    background: rgba(10,11,13,0.55);
+    border: 1px solid rgba(201,162,39,0.4);
+    border-radius: 999px;
+    padding: 8px 15px 8px 12px;
+    backdrop-filter: blur(3px);
+    transition: all 0.16s ease;
+}}
+.hero-volver:hover {{
+    background: rgba(201,162,39,0.16);
+    border-color: {DORADO};
+}}
+
 .hero-emblema {{
     display: block;
     margin: 0 auto 10px;
@@ -873,9 +899,20 @@ def _logo_html(clase: str = "hero-emblema") -> str:
         return ""
 
 
-def hero_simple(titulo: str, cinta: str = "", frase: str = "", con_logo: bool = True):
+def hero_simple(
+    titulo: str,
+    cinta: str = "",
+    frase: str = "",
+    con_logo: bool = True,
+    volver_a: str = "",
+    volver_texto: str = "Inicio",
+):
     """Portada corta, para páginas internas (cita, catálogo, confirmación). Mismo
-    lenguaje visual que la portada principal pero sin la barra de datos del negocio."""
+    lenguaje visual que la portada principal pero sin la barra de datos del negocio.
+
+    `volver_a` pone un botón flotante arriba a la izquierda para regresar. Se usa en
+    todas las páginas internas: sin él hay que salirse de la app para volver al inicio.
+    """
     cinta_html = (
         f'<div class="hero-cinta"><i></i>{cinta}<i class="der"></i></div>' if cinta else ""
     )
@@ -886,8 +923,14 @@ def hero_simple(titulo: str, cinta: str = "", frase: str = "", con_logo: bool = 
         if con_logo and Path(RUTA_LOGO).exists()
         else ""
     )
+    volver = (
+        f'<a class="hero-volver" href="{volver_a}" target="_self">‹ {volver_texto}</a>'
+        if volver_a
+        else ""
+    )
     st.markdown(
-        '<div class="hero"><div class="hero-inner" style="padding:30px 22px 28px;">'
+        f'<div class="hero">{volver}'
+        '<div class="hero-inner" style="padding:30px 22px 28px;">'
         f"{logo}"
         f'<h1 class="hero-nombre" style="font-size:clamp(30px,7.5vw,58px)!important;">{titulo}</h1>'
         f"{cinta_html}{frase_html}</div></div>",

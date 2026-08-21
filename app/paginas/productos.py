@@ -25,6 +25,7 @@ def render():
         titulo="Productos",
         cinta="Para el cuidado en casa",
         frase="Ceras, pomadas y tratamiento. Pregunta por el que quieras y te lo apartamos.",
+        volver_a="/",
     )
 
     for producto in PRODUCTOS:
