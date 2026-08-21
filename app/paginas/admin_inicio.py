@@ -38,6 +38,16 @@ def _atendidas(citas: list[dict]) -> list[dict]:
 def render():
     tema.aplicar()
 
+    # Segunda cerradura. La primera es que esta página ni siquiera se registra para
+    # quien no ha iniciado sesión (ver Aplicacion.py), así que entrar a /panel sin
+    # clave da "Page not found" -- comprobado en el navegador. Pero esa protección
+    # depende de una sola línea: si un día alguien cambia esa lista sin darse cuenta,
+    # el panel quedaría abierto sin que nada avise. Esta comprobación lo impide.
+    if not st.session_state.get("admin_autenticado"):
+        st.warning("Necesitas iniciar sesión para ver el panel.")
+        st.link_button("Ir a iniciar sesión", "/admin", width="stretch")
+        return
+
     if not db.disponible():
         st.warning(
             "Todavía no hay conexión con Supabase. Corre **Conectar_Supabase.py** "
