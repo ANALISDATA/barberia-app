@@ -1,9 +1,9 @@
 # Contexto para Claude Code — Barbería App
 
-App de reservas para una barbería (**un solo barbero, un solo local**). Streamlit +
-Python + Supabase, siguiendo el mismo patrón de `EXTRACCION OP` (la otra app del
-usuario en ISTHO): instalador `.bat` sin terminal, credenciales en `.streamlit/secrets.toml`,
-script guiado para conectar Supabase.
+App de reservas para una barbería (**un solo barbero, un solo local**) — proyecto
+personal del usuario, sin relación con su trabajo. Streamlit + Python + Supabase,
+siguiendo el mismo patrón que otras apps del usuario: instalador `.bat` sin terminal,
+credenciales en `.streamlit/secrets.toml`, script guiado para conectar Supabase.
 
 ## Por qué este stack (y no Next.js)
 
@@ -88,6 +88,7 @@ recalcula al leer una cita vieja, ni siquiera si después cambia el precio en `s
 
 ## Usuario
 
-Ver memoria `user-jhoan-istho`: no-técnico, prueba en vivo y reporta con capturas de
-pantalla, PC corporativo sin permisos de administrador (por eso Node.js portable y este
-cambio a Python -- ver historial de conversación de esta sesión).
+No-técnico, prueba en vivo y reporta con capturas de pantalla, PC corporativo sin
+permisos de administrador (por eso Node.js portable y este cambio a Python -- ver
+historial de conversación de esta sesión). Este proyecto es personal, sin relación con
+su trabajo -- no mezclar cuentas, correos ni nombres de ahí en este repositorio.
