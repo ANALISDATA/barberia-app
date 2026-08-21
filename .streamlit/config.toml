@@ -1,13 +1,17 @@
+# Paleta base que usa Streamlit para pintar SUS widgets (botones, inputs, avisos).
+# Tiene que ir sincronizada con app/ui/tema.py, o quedan dos temas peleando.
 [theme]
 base = "dark"
-primaryColor = "#C89B3C"
-backgroundColor = "#14161A"
-secondaryBackgroundColor = "#1E2126"
-textColor = "#EDEDED"
+primaryColor = "#C9A227"
+backgroundColor = "#111316"
+secondaryBackgroundColor = "#191C21"
+textColor = "#F2EDE4"
 font = "sans serif"
 
 [server]
 headless = true
 
 [client]
+# Oculta la barra de desarrollo (Deploy / Stop) para que el cliente vea una app, no
+# un proyecto en construcción.
 toolbarMode = "minimal"

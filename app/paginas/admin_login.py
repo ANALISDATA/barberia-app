@@ -6,7 +6,7 @@ from app.ui import tema
 
 def render():
     tema.aplicar()
-    st.markdown("### 🔒 Iniciar sesión")
+    tema.seccion("Panel privado", eyebrow="Acceso del barbero")
 
     try:
         clave_correcta = st.secrets.get("admin_password")
@@ -22,7 +22,7 @@ def render():
 
     with st.form("form_login"):
         clave = st.text_input("Contraseña", type="password")
-        enviado = st.form_submit_button("Entrar", type="primary")
+        enviado = st.form_submit_button("Entrar", type="primary", width="stretch")
 
     if enviado:
         if clave == clave_correcta:

@@ -107,6 +107,59 @@ def test_no_muestra_horas_que_ya_pasaron_hoy():
     assert time(8, 30) in [f.inicio for f in libres]
 
 
+def test_la_tarde_arranca_justo_al_terminar_el_descanso():
+    """Reportado por el usuario probando en vivo: tras el descanso de 12:00-14:00 la
+    primera hora libre salía a las 14:30 en vez de las 14:00, porque la rejilla venía
+    corrida desde las 7:00 y el bloque de 13:45 se descartaba por chocar con el
+    descanso. Se perdían 30 minutos de agenda todos los días."""
+    libres = horarios_disponibles(LUNES, HORARIO_NORMAL, DESCANSOS, SIN_EXCEPCIONES, [])
+    horas = [f.inicio for f in libres]
+    assert time(14, 0) in horas       # la tarde arranca en punto, no a las 14:30
+    assert time(14, 30) not in horas  # 14:30 sería la secuencia vieja, corrida
+    assert time(11, 30) not in horas  # invadiría el descanso
+    # La mañana termina en 10:45-11:30: de 11:30 a 12:00 quedan 30 minutos, que no
+    # alcanzan para un corte de 45. Ese hueco es real y no se puede aprovechar.
+    assert libres[5].inicio == time(10, 45)
+    assert libres[6].inicio == time(14, 0)
+
+
+def test_el_ultimo_bloque_cierra_exacto_a_la_hora_de_cierre():
+    """La regla del negocio dice que 19:15-20:00 sí se permite. Con la rejilla corrida
+    desde las 7:00 el último bloque quedaba en 19:00 y se desperdiciaban 15 minutos."""
+    libres = horarios_disponibles(LUNES, HORARIO_NORMAL, DESCANSOS, SIN_EXCEPCIONES, [])
+    assert libres[-1].inicio == time(19, 15)
+    assert libres[-1].fin == time(20, 0)
+
+
+def test_las_horas_salen_en_orden_sin_solaparse_y_dentro_de_la_jornada():
+    libres = horarios_disponibles(LUNES, HORARIO_NORMAL, DESCANSOS, SIN_EXCEPCIONES, [])
+    horas = [f.inicio for f in libres]
+
+    assert horas == sorted(horas), "las horas deben salir de la más temprana a la más tarde"
+    assert len(horas) == len(set(horas)), "no puede haber horas repetidas"
+
+    for anterior, siguiente in zip(libres, libres[1:]):
+        assert anterior.fin <= siguiente.inicio, "dos bloques no se pueden solapar"
+
+    for f in libres:
+        assert time(7, 0) <= f.inicio and f.fin <= time(20, 0)
+        assert not (f.inicio < time(14, 0) and time(12, 0) < f.fin), "invade el descanso"
+
+
+def test_la_duracion_se_puede_cambiar():
+    horario = {0: (time(7, 0), time(9, 0))}
+    de_30 = horarios_disponibles(
+        LUNES, horario, {0: []}, SIN_EXCEPCIONES, [], duracion=30
+    )
+    assert [f.inicio for f in de_30] == [time(7, 0), time(7, 30), time(8, 0), time(8, 30)]
+    assert de_30[0].fin == time(7, 30)
+
+    de_60 = horarios_disponibles(
+        LUNES, horario, {0: []}, SIN_EXCEPCIONES, [], duracion=60
+    )
+    assert [f.inicio for f in de_60] == [time(7, 0), time(8, 0)]
+
+
 def test_proximo_espacio_cambia_segun_la_hora_actual():
     horario = {0: (time(7, 0), time(11, 0))}
     temprano = proximo_espacio(LUNES, horario, {0: []}, SIN_EXCEPCIONES, [], ahora=datetime.combine(LUNES, time(7, 0)))

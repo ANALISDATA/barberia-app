@@ -29,6 +29,8 @@ TABLA_NOTIFICACIONES = "notification_settings"
 
 NEGOCIO_ID = "00000000-0000-0000-0000-000000000001"  # un solo barbero, un solo negocio
 
+DURACION_POR_DEFECTO = 45  # sólo si la base de datos no dice otra cosa
+
 _RUTA_SCHEMA = __import__("pathlib").Path(__file__).parent.parent / "supabase" / "schema.sql"
 
 
@@ -84,6 +86,17 @@ def obtener_servicios() -> list[dict]:
         .execute()
     )
     return r.data
+
+
+def obtener_duracion_cita() -> int:
+    """Minutos que dura una cita. Se guarda por servicio, pero todos comparten el mismo
+    valor por diseño (la barbería agenda bloques iguales sin importar el corte), así que
+    se toma el del primer servicio activo. Cambiarlo en Supabase cambia toda la agenda,
+    sin tocar código."""
+    servicios = obtener_servicios()
+    if not servicios:
+        return DURACION_POR_DEFECTO
+    return servicios[0].get("duration_minutes") or DURACION_POR_DEFECTO
 
 
 def obtener_horario_semanal() -> dict[int, tuple[time, time] | None]:
@@ -164,6 +177,23 @@ def obtener_citas_activas(fecha: date) -> list[tuple[time, time]]:
     return [
         (time.fromisoformat(f["start_time"]), time.fromisoformat(f["end_time"])) for f in r.data
     ]
+
+
+def obtener_citas_rango(desde: date, hasta: date) -> list[dict]:
+    """Todas las citas entre dos fechas (inclusive). Alimenta las estadísticas de
+    semana y mes del panel. Devuelve todos los estados -- quien llama decide cuáles
+    cuentan (sólo 'atendida' suma cortes e ingresos)."""
+    r = (
+        _cliente()
+        .table(TABLA_CITAS)
+        .select("date, start_time, service_type, price_at_booking, status")
+        .eq("business_id", NEGOCIO_ID)
+        .gte("date", desde.isoformat())
+        .lte("date", hasta.isoformat())
+        .order("date")
+        .execute()
+    )
+    return r.data
 
 
 def obtener_citas_del_dia(fecha: date) -> list[dict]:

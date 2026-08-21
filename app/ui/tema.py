@@ -1,254 +1,628 @@
-"""Identidad visual de la app: paleta, tipografía y estilos reutilizables.
+"""Identidad visual de la app: paleta, tipografía, emblema y componentes reutilizables.
 
-La paleta base (fondo carbón + dorado) ya vive en `.streamlit/config.toml` -- eso pinta los
-componentes nativos de Streamlit (botones, inputs). Aquí solo se agrega el CSS que Streamlit
-no cubre: la tarjeta de "próximo espacio", las píldoras de estado de las citas y el encabezado
-de la página pública. Un solo lugar para todo esto, para no repetir estilos sueltos por cada
-página.
+Un solo lugar para TODO lo visual. Las páginas no escriben CSS suelto: piden aquí el
+componente que necesitan (`hero_publico`, `seccion`, `tarjeta_metrica`, ...).
+
+Dos cosas aprendidas probando en el navegador y que hay que respetar al tocar este archivo:
+
+1. Streamlit pinta sus propios estilos con más prioridad que un selector de clase normal.
+   Las reglas que compiten con los suyos (tipografía de h1/h2/h3, colores de botones,
+   padding del contenedor principal) necesitan `!important` o se pierden EN SILENCIO --
+   la página se ve mal pero no hay ningún error que lo delate.
+2. El fondo y los colores base viven en `.streamlit/config.toml` (Streamlit los necesita
+   antes de que corra este archivo, para pintar sus widgets). Si se cambia la paleta aquí,
+   hay que cambiarla también allá o quedan dos temas peleando.
 """
 import streamlit as st
 
-DORADO = "#C89B3C"
-DORADO_CLARO = "#E4C878"
-DORADO_SUAVE = "#3A331E"
-VERDE_OK = "#4CAF7D"
-ROJO_ALERTA = "#D96C6C"
-CARBON = "#14161A"
-CARBON_HERO = "#0D0F13"
-SUPERFICIE = "#1E2126"
-TEXTO_SUAVE = "#9AA0A6"
+# ---------------------------------------------------------------------------
+# Paleta -- mantener sincronizada con .streamlit/config.toml
+# ---------------------------------------------------------------------------
+NEGRO = "#0A0B0D"          # fondo del hero, el punto más oscuro
+CARBON = "#111316"          # fondo general de la app
+SUPERFICIE = "#191C21"      # tarjetas
+SUPERFICIE_ALTA = "#20242A"  # tarjetas destacadas / hover
+LINEA = "#2A2E35"           # bordes y separadores
+
+DORADO = "#C9A227"          # dorado principal (acentos, botones)
+DORADO_CLARO = "#E8CE7A"    # dorado claro (títulos grandes)
+DORADO_PROFUNDO = "#8A6E15"  # dorado oscuro para degradados
+
+BLANCO_CALIDO = "#F2EDE4"   # texto principal
+GRIS_CALIDO = "#8B8579"     # etiquetas, texto secundario
+GRIS_TENUE = "#5F6169"      # texto terciario
+
+VERDE_OK = "#5FB98A"
+ROJO_ALERTA = "#D97A6C"
+
+_FUENTES = (
+    "https://fonts.googleapis.com/css2?"
+    "family=Oswald:wght@300;400;500;600;700&"
+    "family=Cormorant+Garamond:ital,wght@1,400;1,500&"
+    "family=Inter:wght@400;500;600;700&display=swap"
+)
+
+# Grano sutil sobre el hero: le quita el aspecto "degradado plano de plantilla".
+# Va como data URI para no depender de ningún archivo ni servidor externo.
+_GRANO = (
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' "
+    "height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' "
+    "baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='200' height='200' "
+    "filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E\")"
+)
 
 _CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,wght@0,600;0,700;1,500&family=Inter:wght@400;500;600&display=swap');
+@import url('{_FUENTES}');
 
-/* Streamlit aplica su propia tipografia a h1/h2/h3 y a los parrafos dentro de
-   [data-testid="stMarkdownContainer"] con mas prioridad que un simple selector de clase o
-   de etiqueta -- sin !important estas reglas se pierden en silencio (se detecto inspeccionando
-   los estilos ya calculados en el navegador, no a simple vista). */
-h1, h2, h3 {{ font-family: 'Fraunces', serif !important; letter-spacing: -0.01em; }}
-html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
+/* ---------- Base ---------- */
+html, body, [class*="css"], .stApp {{
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}}
+h1, h2, h3, h4 {{
+    font-family: 'Oswald', 'Arial Narrow', sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em !important;
+    color: {BLANCO_CALIDO} !important;
+}}
 
-/* ---------- Hero de la página pública ---------- */
-.hero-full {{
+/* Streamlit deja un hueco arriba del contenido. En la página pública el hero tiene que
+   pegar con el borde superior, así que se anula ese hueco -- pero SÓLO el de arriba.
+   El margen lateral se conserva a propósito: los widgets de Streamlit (calendario,
+   botones, formulario) son hermanos del hero en el DOM, no hijos, así que si se quita
+   el padding lateral quedan pegados al borde de la pantalla en celular. El hero se
+   sale a lo ancho por su cuenta con el truco de `100vw` de abajo. */
+.block-container {{ padding-top: 0 !important; padding-bottom: 3rem !important; }}
+
+/* ---------- HERO ---------- */
+.hero {{
     position: relative;
     width: 100vw;
     margin-left: calc(-50vw + 50%);
-    margin-top: -70px;
-    margin-bottom: 40px;
-    padding: 96px 24px 0;
     background:
-        repeating-linear-gradient(115deg, rgba(200,155,60,0.05) 0 2px, transparent 2px 34px),
-        radial-gradient(ellipse at 50% 0%, #23262d 0%, {CARBON_HERO} 70%);
-    border-bottom: 1px solid #2A2D33;
-    text-align: center;
+        radial-gradient(ellipse 900px 520px at 50% -8%, rgba(201,162,39,0.16) 0%, transparent 62%),
+        radial-gradient(ellipse 700px 420px at 50% 108%, rgba(201,162,39,0.06) 0%, transparent 60%),
+        linear-gradient(178deg, #101215 0%, {NEGRO} 55%, #08090B 100%);
     overflow: hidden;
+    border-bottom: 1px solid {LINEA};
 }}
-.hero-marca {{
-    font-size: 34px;
-    line-height: 1;
-    margin-bottom: 18px;
-    filter: drop-shadow(0 4px 18px rgba(200,155,60,0.25));
+/* Textura: franjas diagonales muy tenues (guiño al poste de barbería) + grano */
+.hero::before {{
+    content: '';
+    position: absolute; inset: 0;
+    background:
+        repeating-linear-gradient(118deg,
+            rgba(232,206,122,0.030) 0px, rgba(232,206,122,0.030) 1px,
+            transparent 1px, transparent 26px);
+    pointer-events: none;
 }}
+.hero::after {{
+    content: '';
+    position: absolute; inset: 0;
+    background-image: {_GRANO};
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+}}
+.hero-inner {{
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 62px 22px 46px;
+    max-width: 760px;
+    margin: 0 auto;
+}}
+
+.hero-emblema {{ margin: 0 auto 24px; display: block; }}
+
 .hero-nombre {{
-    font-family: 'Bebas Neue', 'Arial Narrow', sans-serif !important;
-    font-size: clamp(48px, 11vw, 108px);
-    line-height: 0.92;
-    letter-spacing: 0.02em;
-    color: {DORADO_CLARO};
-    text-shadow: 0 2px 28px rgba(200,155,60,0.18);
-    margin: 0 !important;
+    font-family: 'Oswald', 'Arial Narrow', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: clamp(46px, 12vw, 96px) !important;
+    line-height: 0.94 !important;
+    letter-spacing: 0.015em !important;
+    text-transform: uppercase;
+    margin: 0 0 16px !important;
+    color: {DORADO_CLARO} !important;
+    text-shadow: 0 0 60px rgba(201,162,39,0.30), 0 2px 2px rgba(0,0,0,0.6);
     text-wrap: balance;
 }}
-.hero-linea {{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    margin: 14px 0 22px;
-    font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 0.35em;
+
+.hero-cinta {{
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px;
+    margin-bottom: 26px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 400;
     font-size: 13px;
-    color: #C7CFD9;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    text-transform: uppercase;
+    color: {GRIS_CALIDO};
+    white-space: nowrap;
 }}
-.hero-linea .raya {{ width: 46px; height: 1px; background: linear-gradient(90deg, transparent, {DORADO}); }}
-.hero-linea .raya.der {{ background: linear-gradient(90deg, {DORADO}, transparent); }}
+.hero-cinta i {{
+    display: block; height: 1px; width: clamp(24px, 9vw, 78px); flex: none;
+    background: linear-gradient(90deg, transparent, {DORADO});
+}}
+.hero-cinta i.der {{ background: linear-gradient(90deg, {DORADO}, transparent); }}
+
 .hero-tagline {{
-    font-family: 'Fraunces', serif !important;
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
     font-style: italic;
-    font-weight: 500;
-    font-size: 18px;
-    color: #D7DBE0;
-    max-width: 46ch;
+    font-weight: 400;
+    font-size: clamp(19px, 2.6vw, 25px) !important;
+    line-height: 1.45 !important;
+    color: #CFC8BC !important;
+    max-width: 30ch;
     margin: 0 auto 34px !important;
     text-wrap: balance;
 }}
+
 .hero-cta {{
     display: inline-block;
-    background: linear-gradient(180deg, {DORADO_CLARO}, {DORADO});
-    color: {CARBON_HERO} !important;
-    font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 0.14em;
-    font-size: 18px;
-    padding: 15px 42px;
-    border-radius: 3px;
+    background: linear-gradient(178deg, {DORADO_CLARO} 0%, {DORADO} 52%, {DORADO_PROFUNDO} 100%);
+    color: #14100A !important;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.19em;
+    text-indent: 0.19em;
+    text-transform: uppercase;
+    padding: 17px 46px;
+    border: none;
     text-decoration: none !important;
-    box-shadow: 0 10px 30px -8px rgba(200,155,60,0.55);
-    transition: transform 0.15s ease;
+    box-shadow: 0 14px 38px -12px rgba(201,162,39,0.75), inset 0 1px 0 rgba(255,255,255,0.35);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
 }}
-.hero-cta:hover {{ transform: translateY(-2px); }}
+.hero-cta:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 20px 46px -12px rgba(201,162,39,0.9), inset 0 1px 0 rgba(255,255,255,0.45);
+}}
+.hero-cta:active {{ transform: translateY(0); }}
 
-.info-barra {{
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0;
-    margin-top: 56px;
-    border-top: 1px solid #2A2D33;
+/* ---------- Barra de datos del negocio ---------- */
+.hero-barra {{
+    position: relative; z-index: 2;
+    display: flex; flex-wrap: wrap;
+    border-top: 1px solid {LINEA};
+    background: rgba(0,0,0,0.30);
+    backdrop-filter: blur(2px);
 }}
-.info-col {{
-    flex: 1 1 200px;
-    padding: 20px 18px;
+.barra-col {{
+    flex: 1 1 210px;
+    padding: 24px 20px;
     text-align: center;
-    border-left: 1px solid #2A2D33;
-}}
-.info-col:first-child {{ border-left: none; }}
-.info-col .etiqueta {{
-    font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 0.18em;
-    color: {DORADO};
-    font-size: 12px;
-    margin-bottom: 6px;
-}}
-.info-col .valor {{ color: #E7ECF2; font-size: 15px; font-weight: 500; }}
-.info-col a.valor-enlace {{
-    display: inline-block;
+    border-left: 1px solid {LINEA};
     text-decoration: none !important;
-    border-bottom: 1px dashed {DORADO};
-    transition: color 0.15s ease, border-color 0.15s ease;
+    transition: background 0.18s ease;
 }}
-.info-col a.valor-enlace:hover {{ color: {DORADO_CLARO} !important; border-color: {DORADO_CLARO}; }}
+.barra-col:first-child {{ border-left: none; }}
+a.barra-col:hover {{ background: rgba(201,162,39,0.07); }}
+.barra-icono {{ display: block; margin: 0 auto 9px; opacity: 0.95; }}
+.barra-etiqueta {{
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    text-indent: 0.26em;
+    text-transform: uppercase;
+    color: {DORADO};
+    margin-bottom: 7px;
+}}
+.barra-valor {{
+    font-size: 14.5px;
+    font-weight: 500;
+    color: {BLANCO_CALIDO};
+    line-height: 1.5;
+}}
+a.barra-col .barra-valor {{ color: {BLANCO_CALIDO} !important; }}
+.barra-accion {{
+    display: inline-block;
+    margin-top: 6px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: {DORADO};
+    border-bottom: 1px solid rgba(201,162,39,0.45);
+    padding-bottom: 1px;
+}}
 
+/* ---------- Encabezados de sección ---------- */
+.seccion {{ margin: 46px 0 20px; text-align: center; }}
+.seccion .eyebrow {{
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+    text-transform: uppercase;
+    color: {DORADO};
+    margin-bottom: 8px;
+}}
+.seccion h2 {{
+    font-size: 30px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em !important;
+    margin: 0 0 14px !important;
+}}
+.seccion .rule {{
+    width: 54px; height: 2px; margin: 0 auto;
+    background: linear-gradient(90deg, transparent, {DORADO}, transparent);
+}}
+
+/* Variante compacta, para el panel del administrador. El encabezado grande y centrado
+   funciona en la portada (es una presentación); en el panel sólo aleja los datos, que
+   es justo lo contrario de lo que se necesita al abrir la app entre corte y corte. */
+.seccion.compacta {{
+    text-align: left;
+    margin: 30px 0 12px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid {LINEA};
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}}
+.seccion.compacta h2 {{ font-size: 19px !important; margin: 0 !important; }}
+.seccion.compacta .eyebrow {{ margin: 0; font-size: 10px; }}
+.seccion.compacta .rule {{ display: none; }}
+
+/* ---------- Widgets de Streamlit ---------- */
+/* Botones de hora libre: chip con borde dorado. Streamlit los pinta con su propio
+   estilo, de ahí los !important. */
+.stButton > button {{
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase;
+    border-radius: 2px !important;
+    border: 1px solid {LINEA} !important;
+    background: {SUPERFICIE} !important;
+    color: {BLANCO_CALIDO} !important;
+    transition: all 0.16s ease !important;
+}}
+.stButton > button:hover {{
+    border-color: {DORADO} !important;
+    color: {DORADO_CLARO} !important;
+    background: {SUPERFICIE_ALTA} !important;
+}}
+.stButton > button[kind="primary"], .stFormSubmitButton > button {{
+    background: linear-gradient(178deg, {DORADO_CLARO}, {DORADO} 55%, {DORADO_PROFUNDO}) !important;
+    color: #14100A !important;
+    border: none !important;
+    font-weight: 600 !important;
+    box-shadow: 0 8px 22px -10px rgba(201,162,39,0.8) !important;
+}}
+.stFormSubmitButton > button:hover {{ filter: brightness(1.07); }}
+
+/* Inputs */
+div[data-baseweb="input"], div[data-baseweb="select"] > div {{
+    border-radius: 2px !important;
+    border-color: {LINEA} !important;
+}}
+label, .stRadio label, div[data-testid="stWidgetLabel"] p {{
+    font-family: 'Oswald', sans-serif !important;
+    font-size: 12px !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase;
+    color: {GRIS_CALIDO} !important;
+}}
+
+/* ---------- Tarjetas ---------- */
 .tarjeta {{
     background: {SUPERFICIE};
-    border: 1px solid #2A2D33;
-    border-radius: 14px;
+    border: 1px solid {LINEA};
+    border-radius: 3px;
     padding: 20px 22px;
     margin-bottom: 14px;
 }}
 .tarjeta-dorada {{
-    background: linear-gradient(135deg, {DORADO_SUAVE}, {SUPERFICIE});
-    border: 1px solid {DORADO};
-    border-radius: 14px;
+    position: relative;
+    background: linear-gradient(140deg, rgba(201,162,39,0.14), {SUPERFICIE} 62%);
+    border: 1px solid rgba(201,162,39,0.55);
+    border-radius: 3px;
     padding: 22px 24px;
     margin-bottom: 14px;
 }}
 .etiqueta {{
-    font-size: 12px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: {TEXTO_SUAVE};
-    margin-bottom: 4px;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+    color: {GRIS_CALIDO};
+    margin-bottom: 6px;
 }}
 .valor-grande {{
-    font-family: 'Fraunces', serif;
-    font-size: 30px;
-    font-weight: 700;
-    color: {DORADO};
+    font-family: 'Oswald', sans-serif;
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: {DORADO_CLARO};
 }}
+.valor-medio {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: {BLANCO_CALIDO};
+}}
+
+/* Rejilla de indicadores. `auto-fit` + `minmax` hace el trabajo responsivo solo:
+   3 columnas en computador, 2 en celular, sin media queries ni st.columns (que en
+   pantallas angostas aprieta el contenido en vez de apilarlo). */
+.metricas {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}}
+.metrica {{
+    background: {SUPERFICIE};
+    border: 1px solid {LINEA};
+    border-radius: 3px;
+    padding: 15px 16px;
+}}
+.metrica .n {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 27px; font-weight: 600; line-height: 1.15;
+    color: {BLANCO_CALIDO};
+}}
+.metrica.oro {{ border-color: rgba(201,162,39,0.5); background: linear-gradient(140deg, rgba(201,162,39,0.10), {SUPERFICIE} 70%); }}
+.metrica.oro .n {{ color: {DORADO_CLARO}; }}
+.metrica.apagada .n {{ color: {GRIS_TENUE}; }}
+
+/* Tarjeta que envuelve una gráfica.
+   Se usa `st.container(border=True)` de Streamlit, NO un <div> propio: un div abierto
+   con st.markdown no llega a envolver los widgets que vienen después (son hermanos en
+   el DOM, no hijos) -- se comprobó viendo el título en su propia caja y la gráfica
+   fuera. Aquí sólo se le da el aspecto de la app al contenedor real de Streamlit. */
+div[data-testid="stVerticalBlockBorderWrapper"] {{
+    background: {SUPERFICIE};
+    border-color: {LINEA} !important;
+    border-radius: 3px !important;
+}}
+.panel-titulo {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 0.2em; text-indent: 0.2em; text-transform: uppercase;
+    color: {DORADO};
+    margin-bottom: 4px;
+}}
+
+/* Saludo del panel */
+.saludo {{
+    padding: 26px 0 6px;
+    border-bottom: 1px solid {LINEA};
+    margin-bottom: 22px;
+}}
+.saludo h1 {{
+    font-size: clamp(28px, 6vw, 38px) !important;
+    text-transform: uppercase;
+    margin: 0 0 4px !important;
+    color: {BLANCO_CALIDO} !important;
+}}
+.saludo .fecha {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: {GRIS_CALIDO};
+}}
+
+/* Fila de cita en el panel */
+.fila-cita {{
+    display: flex; align-items: center; gap: 14px;
+    background: {SUPERFICIE};
+    border: 1px solid {LINEA};
+    border-left: 2px solid {DORADO};
+    border-radius: 3px;
+    padding: 13px 18px;
+    margin-bottom: 9px;
+}}
+.fila-cita .hora {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 19px; font-weight: 600;
+    color: {DORADO_CLARO};
+    min-width: 68px;
+}}
+.fila-cita .quien {{ flex: 1; color: {BLANCO_CALIDO}; font-weight: 500; }}
+.fila-cita .que {{ color: {GRIS_CALIDO}; font-size: 13.5px; }}
+
 .pildora {{
     display: inline-block;
-    padding: 3px 10px;
+    padding: 3px 11px;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }}
-.pildora-confirmada {{ background: #2A2D33; color: {TEXTO_SUAVE}; }}
-.pildora-atendida {{ background: rgba(76,175,125,0.15); color: {VERDE_OK}; }}
-.pildora-cancelada {{ background: rgba(217,108,108,0.15); color: {ROJO_ALERTA}; }}
-.pildora-no_asistio {{ background: rgba(217,108,108,0.15); color: {ROJO_ALERTA}; }}
+.pildora-confirmada {{ background: rgba(201,162,39,0.14); color: {DORADO_CLARO}; }}
+.pildora-atendida {{ background: rgba(95,185,138,0.15); color: {VERDE_OK}; }}
+.pildora-cancelada {{ background: rgba(217,122,108,0.15); color: {ROJO_ALERTA}; }}
+.pildora-no_asistio {{ background: rgba(217,122,108,0.15); color: {ROJO_ALERTA}; }}
 
-.exito-publico {{
+/* ---------- Confirmación de cita ---------- */
+.ticket {{
+    background: linear-gradient(150deg, rgba(201,162,39,0.10), {SUPERFICIE} 65%);
+    border: 1px solid rgba(201,162,39,0.5);
+    border-radius: 3px;
+    padding: 34px 26px;
     text-align: center;
-    padding: 32px 16px 12px;
+    margin-bottom: 22px;
 }}
-.exito-publico h1 {{ font-size: 30px; margin-bottom: 4px; font-family: 'Fraunces', serif; }}
+.ticket .dia {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: {GRIS_CALIDO}; margin-bottom: 10px;
+}}
+.ticket .hora-grande {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 62px; font-weight: 700; line-height: 1;
+    color: {DORADO_CLARO};
+    text-shadow: 0 0 44px rgba(201,162,39,0.3);
+    margin-bottom: 12px;
+}}
+.ticket .detalle {{
+    font-size: 15px; color: {BLANCO_CALIDO};
+    padding-top: 14px; border-top: 1px dashed rgba(201,162,39,0.4);
+}}
+
+.aviso-vacio {{
+    background: {SUPERFICIE};
+    border: 1px dashed {LINEA};
+    border-radius: 3px;
+    padding: 26px 20px;
+    text-align: center;
+    color: {GRIS_CALIDO};
+}}
+
+/* Streamlit le pone un icono de enlace (🔗) a cada título al pasar el mouse. En una
+   página de cara al cliente sobra: no es documentación, es una barbería. */
+h1 a, h2 a, h3 a, .stMarkdown a[href^="#"] svg {{ display: none !important; }}
+
+/* ---------- Móvil ---------- */
+@media (max-width: 640px) {{
+    .hero-inner {{ padding: 46px 18px 38px; }}
+    .hero-cinta {{ font-size: 10px; letter-spacing: 0.3em; gap: 10px; }}
+    .barra-col {{ flex-basis: 100%; border-left: none; border-top: 1px solid {LINEA}; }}
+    .barra-col:first-child {{ border-top: none; }}
+    .ticket .hora-grande {{ font-size: 50px; }}
+
+    /* Por defecto Streamlit apila las columnas una debajo de otra en pantalla angosta.
+       Aquí NO conviene: la rejilla de horas quedaría en una sola tira larguísima (15
+       horas = 15 filas de scroll). Se fuerzan a quedar lado a lado, que es justo lo
+       que hace cómoda la elección con el pulgar. */
+    div[data-testid="stHorizontalBlock"] {{
+        flex-wrap: nowrap !important;
+        gap: 7px !important;
+    }}
+    div[data-testid="stColumn"] {{
+        min-width: 0 !important;
+        flex: 1 1 0 !important;
+        width: auto !important;
+    }}
+    .stButton > button {{
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+        font-size: 13px !important;
+    }}
+}}
 </style>
 """
 
+# Emblema e iconos, dibujados a mano en SVG (no son imágenes externas: así nunca fallan
+# por falta de conexión y se ven nítidos en cualquier pantalla).
+#
+# Van en UNA sola línea a propósito, igual que el resto del HTML de este archivo: un
+# salto de línea seguido de espacios convierte el bloque en código para el Markdown de
+# Streamlit y el SVG saldría escrito como texto. Ver la nota en `hero_publico`.
+_EMBLEMA = (
+    '<svg class="hero-emblema" width="78" height="78" viewBox="0 0 120 120" fill="none"'
+    ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    f'<path d="M60 3 L117 60 L60 117 L3 60 Z" stroke="{DORADO}" stroke-width="1.6" opacity="0.95"/>'
+    f'<path d="M60 15 L105 60 L60 105 L15 60 Z" stroke="{DORADO}" stroke-width="0.8" opacity="0.42"/>'
+    f'<g stroke="{DORADO_CLARO}" stroke-width="2.4" stroke-linecap="round" fill="none">'
+    '<line x1="46" y1="36" x2="74" y2="72"/><line x1="74" y1="36" x2="46" y2="72"/>'
+    '<circle cx="43" cy="80" r="6.4" stroke-width="2"/>'
+    '<circle cx="77" cy="80" r="6.4" stroke-width="2"/></g></svg>'
+)
+
+_ICONO_PIN = (
+    '<svg class="barra-icono" width="21" height="21" viewBox="0 0 24 24" fill="none"'
+    ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    '<path d="M12 21s7-6.03 7-11a7 7 0 1 0-14 0c0 4.97 7 11 7 11z"'
+    f' stroke="{DORADO}" stroke-width="1.6" stroke-linejoin="round"/>'
+    f'<circle cx="12" cy="10" r="2.6" stroke="{DORADO}" stroke-width="1.6"/></svg>'
+)
+
+_ICONO_TEL = (
+    '<svg class="barra-icono" width="21" height="21" viewBox="0 0 24 24" fill="none"'
+    ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    '<path d="M6.5 3.5h3l1.5 4-2 1.4a12 12 0 0 0 6.1 6.1l1.4-2 4 1.5v3a2 2 0 0 1-2.2 2'
+    'A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"'
+    f' stroke="{DORADO}" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+)
+
+_ICONO_RELOJ = (
+    '<svg class="barra-icono" width="21" height="21" viewBox="0 0 24 24" fill="none"'
+    ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    f'<circle cx="12" cy="12" r="8.6" stroke="{DORADO}" stroke-width="1.6"/>'
+    f'<path d="M12 7.2V12l3.1 2" stroke="{DORADO}" stroke-width="1.6" stroke-linecap="round"/></svg>'
+)
+
 
 def aplicar():
+    """Inyecta la hoja de estilos. Se llama al principio de cada página."""
     st.markdown(_CSS, unsafe_allow_html=True)
 
 
-def hero_publico(negocio: dict, resumen_horario: str = ""):
-    """Portada de la página pública -- a todo el ancho, tipografía grande, barra de
-    dirección/teléfono/horario abajo. `resumen_horario` es un texto ya formateado
-    (ver `resumen_horario_texto`), se pasa vacío si no se pudo calcular.
-    """
+def hero_publico(negocio: dict, resumen_horario: str = "", url_waze: str = ""):
+    """Portada: emblema, nombre grande, frase, botón y barra con dirección (enlace a
+    Waze), teléfono (enlace para llamar) y horario."""
     nombre = negocio.get("name", "Barbería")
-    descripcion = negocio.get("description") or "Reserva tu cita en un par de clics"
+    descripcion = negocio.get("description") or "Corte y barba con cita previa. Sin filas, sin esperas."
 
     columnas = ""
     if negocio.get("address"):
-        from urllib.parse import quote
-
-        enlace_waze = f"https://waze.com/ul?q={quote(negocio['address'])}&navigate=yes"
         columnas += (
-            f'<div class="info-col"><div class="etiqueta">Dirección</div>'
-            f'<a class="valor valor-enlace" href="{enlace_waze}" target="_blank" '
-            f'rel="noopener">{negocio["address"]} ↗</a></div>'
+            f'<a class="barra-col" href="{url_waze}" target="_blank" rel="noopener">'
+            f'{_ICONO_PIN}'
+            f'<div class="barra-etiqueta">Dónde estamos</div>'
+            f'<div class="barra-valor">{negocio["address"]}</div>'
+            f'<span class="barra-accion">Cómo llegar ›</span>'
+            f"</a>"
         )
     if negocio.get("phone"):
+        solo_digitos = "".join(c for c in negocio["phone"] if c.isdigit())
         columnas += (
-            f'<div class="info-col"><div class="etiqueta">Teléfono</div>'
-            f'<div class="valor">{negocio["phone"]}</div></div>'
+            f'<a class="barra-col" href="tel:+57{solo_digitos}">'
+            f'{_ICONO_TEL}'
+            f'<div class="barra-etiqueta">Contacto</div>'
+            f'<div class="barra-valor">{negocio["phone"]}</div>'
+            f'<span class="barra-accion">Llamar ›</span>'
+            f"</a>"
         )
     if resumen_horario:
         columnas += (
-            f'<div class="info-col"><div class="etiqueta">Horario</div>'
-            f'<div class="valor">{resumen_horario}</div></div>'
+            f'<div class="barra-col">'
+            f'{_ICONO_RELOJ}'
+            f'<div class="barra-etiqueta">Horario</div>'
+            f'<div class="barra-valor">{resumen_horario}</div>'
+            f"</div>"
         )
-    barra = f'<div class="info-barra">{columnas}</div>' if columnas else ""
+    barra = f'<div class="hero-barra">{columnas}</div>' if columnas else ""
 
+    # OJO: el HTML va SIN indentar y en una sola cadena continua. Streamlit pasa esto
+    # por un procesador de Markdown antes de renderizarlo, y Markdown convierte
+    # cualquier línea con 4 o más espacios al inicio en un bloque de código -- el HTML
+    # aparecería como texto literal en la pantalla. Se detectó exactamente así probando
+    # en el navegador. No "ordenar" esto con indentación bonita.
     st.markdown(
-        f"""
-        <div class="hero-full">
-            <div class="hero-marca">💈</div>
-            <h1 class="hero-nombre">{nombre}</h1>
-            <div class="hero-linea"><span class="raya"></span>BARBERÍA<span class="raya der"></span></div>
-            <p class="hero-tagline">{descripcion}</p>
-            <a class="hero-cta" href="#elige-el-dia">Reservar cita</a>
-            {barra}
-        </div>
-        """,
+        '<div class="hero"><div class="hero-inner">'
+        f"{_EMBLEMA}"
+        f'<h1 class="hero-nombre">{nombre}</h1>'
+        '<div class="hero-cinta"><i></i>Barbería<i class="der"></i></div>'
+        f'<p class="hero-tagline">{descripcion}</p>'
+        '<a class="hero-cta" href="#reservar">Pide aquí tu cita</a>'
+        f"</div>{barra}</div>",
         unsafe_allow_html=True,
     )
 
 
-def resumen_horario_texto(horario_semanal: dict) -> str:
-    """'Lun–Sáb 7:00am–8:00pm' cuando todos los días abiertos comparten horario;
-    si no, un texto genérico. Se usa solo para mostrar en la portada -- la
-    disponibilidad real siempre la calcula el motor, no este texto."""
-    from config import NOMBRES_DIA
+def seccion(titulo: str, eyebrow: str = "", ancla: str = "", compacta: bool = False):
+    """Encabezado de sección.
 
-    abiertos = {d: h for d, h in horario_semanal.items() if h is not None}
-    if not abiertos:
-        return ""
-
-    horarios_unicos = set(abiertos.values())
-    dias_ordenados = sorted(abiertos.keys())
-
-    def fmt_hora(t) -> str:
-        return t.strftime("%I:%M%p").lstrip("0").lower()
-
-    if len(horarios_unicos) == 1:
-        inicio, fin = next(iter(horarios_unicos))
-        primero, ultimo = NOMBRES_DIA[dias_ordenados[0]][:3], NOMBRES_DIA[dias_ordenados[-1]][:3]
-        rango_dias = primero if primero == ultimo else f"{primero}–{ultimo}"
-        return f"{rango_dias} {fmt_hora(inicio)}–{fmt_hora(fin)}"
-
-    return "Consulta la disponibilidad abajo"
+    `compacta=True` para el panel del administrador: una sola línea, alineada a la
+    izquierda. Sin ella, el encabezado grande de la portada (centrado, con filete) roba
+    media pantalla de celular por cada bloque de datos.
+    """
+    id_attr = f' id="{ancla}"' if ancla else ""
+    clase = "seccion compacta" if compacta else "seccion"
+    eyebrow_html = f'<div class="eyebrow">{eyebrow}</div>' if eyebrow else ""
+    # En la versión compacta el eyebrow va DESPUÉS del título: el flex los separa a
+    # lados opuestos y el dato de contexto (la fecha, el rango) queda a la derecha.
+    cuerpo = (
+        f"<h2>{titulo}</h2>{eyebrow_html}" if compacta
+        else f'{eyebrow_html}<h2>{titulo}</h2><div class="rule"></div>'
+    )
+    st.markdown(f'<div class="{clase}"{id_attr}>{cuerpo}</div>', unsafe_allow_html=True)
 
 
 def tarjeta_metrica(etiqueta: str, valor: str, dorada: bool = False):
@@ -260,6 +634,51 @@ def tarjeta_metrica(etiqueta: str, valor: str, dorada: bool = False):
     )
 
 
+def grid_metricas(items: list[tuple[str, str, str]]):
+    """Rejilla de indicadores. Cada item es (etiqueta, valor, tono) donde tono es
+    "" (normal), "oro" (destacado) o "apagada" (cuando el valor es cero y no importa)."""
+    celdas = "".join(
+        f'<div class="metrica {tono}"><div class="etiqueta">{etiqueta}</div>'
+        f'<div class="n">{valor}</div></div>'
+        for etiqueta, valor, tono in items
+    )
+    st.markdown(f'<div class="metricas">{celdas}</div>', unsafe_allow_html=True)
+
+
+def panel(titulo: str):
+    """Tarjeta con título que envuelve una gráfica. Se usa como contexto:
+
+        with tema.panel("Jornada"):
+            st.altair_chart(...)
+
+    Devuelve el contenedor de Streamlit (no un <div> propio) porque es la única forma
+    de que los widgets queden REALMENTE dentro de la tarjeta -- ver la nota del CSS.
+    """
+    caja = st.container(border=True)
+    caja.markdown(f'<div class="panel-titulo">{titulo}</div>', unsafe_allow_html=True)
+    return caja
+
+
+def saludo(texto: str, fecha_texto: str):
+    st.markdown(
+        f'<div class="saludo"><h1>{texto}</h1><div class="fecha">{fecha_texto}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def fila_cita(hora: str, quien: str, que: str, estado_html: str = ""):
+    st.markdown(
+        f'<div class="fila-cita"><span class="hora">{hora}</span>'
+        f'<span class="quien">{quien}<br><span class="que">{que}</span></span>'
+        f"{estado_html}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def aviso_vacio(texto: str):
+    st.markdown(f'<div class="aviso-vacio">{texto}</div>', unsafe_allow_html=True)
+
+
 def pildora_estado(estado: str) -> str:
     etiquetas = {
         "confirmada": "Confirmada",
@@ -269,3 +688,36 @@ def pildora_estado(estado: str) -> str:
     }
     texto = etiquetas.get(estado, estado)
     return f'<span class="pildora pildora-{estado}">{texto}</span>'
+
+
+def url_waze(direccion: str) -> str:
+    """Enlace que abre Waze con la ruta ya trazada. En celular abre la app si está
+    instalada; en computador abre Waze web."""
+    from urllib.parse import quote
+
+    return f"https://waze.com/ul?q={quote(direccion)}&navigate=yes"
+
+
+def resumen_horario_texto(horario_semanal: dict) -> str:
+    """'Lun a Sáb · 7:00am – 8:00pm' cuando todos los días abiertos comparten horario;
+    si no, un texto genérico. Es sólo para mostrar en la portada -- la disponibilidad
+    real siempre la calcula el motor, nunca este texto."""
+    from config import NOMBRES_DIA
+
+    abiertos = {d: h for d, h in horario_semanal.items() if h is not None}
+    if not abiertos:
+        return ""
+
+    horarios_unicos = set(abiertos.values())
+    dias_ordenados = sorted(abiertos.keys())
+
+    def fmt(t) -> str:
+        return t.strftime("%I:%M%p").lstrip("0").lower().replace(":00", "")
+
+    if len(horarios_unicos) == 1:
+        inicio, fin = next(iter(horarios_unicos))
+        primero, ultimo = NOMBRES_DIA[dias_ordenados[0]][:3], NOMBRES_DIA[dias_ordenados[-1]][:3]
+        rango = primero if primero == ultimo else f"{primero} a {ultimo}"
+        return f"{rango}<br>{fmt(inicio)} – {fmt(fin)}"
+
+    return "Consulta abajo<br>la disponibilidad"

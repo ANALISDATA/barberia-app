@@ -23,6 +23,10 @@ PAGINAS = [
 def test_paginas_no_truenan_sin_conexion(monkeypatch):
     monkeypatch.setattr("app.db.disponible", lambda: False)
     for pagina in PAGINAS:
-        at = AppTest.from_file(pagina)
+        # El timeout va explícito y holgado: el de fábrica (3s) alcanzaba cuando las
+        # páginas eran simples, pero ahora importan pandas y altair, y en un arranque
+        # en frío la prueba fallaba de forma intermitente por tiempo, no por un fallo
+        # real de la app. Un timeout corto aquí sólo produce ruido.
+        at = AppTest.from_file(pagina, default_timeout=30)
         at.run()
         assert not at.exception, f"{pagina} lanzó un error sin conexión a Supabase: {at.exception}"

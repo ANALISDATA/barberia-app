@@ -16,12 +16,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
+# Valor por defecto cuando nadie dice otra cosa. La duracion REAL de una cita se
+# guarda en la base de datos (services.duration_minutes) y se pasa por parametro a
+# `horarios_disponibles`, para poder cambiarla sin tocar codigo.
 DURACION_MINUTOS = 45
 
 
 @dataclass(frozen=True)
 class Franja:
-    """Un bloque de tiempo libre u ocupado, siempre de 45 minutos."""
+    """Un bloque de tiempo: una cita ocupada o un espacio libre."""
 
     inicio: time
     fin: time
@@ -77,16 +80,51 @@ def resolver_horario_del_dia(
     )
 
 
-def _generar_bloques(apertura: time, cierre: time) -> list[Franja]:
-    """Bloques de 45 min desde la apertura, mientras inicio + 45min <= cierre."""
-    bloques: list[Franja] = []
-    cursor = datetime.combine(date.today(), apertura)
-    fin_jornada = datetime.combine(date.today(), cierre)
-    paso = timedelta(minutes=DURACION_MINUTOS)
+def _tramos_abiertos(
+    apertura: time, cierre: time, descansos: list[tuple[time, time]]
+) -> list[tuple[time, time]]:
+    """Parte la jornada en los ratos en los que de verdad se atiende, quitando los
+    descansos. Un día de 7:00 a 20:00 con descanso de 12:00 a 14:00 da dos tramos:
+    (7:00, 12:00) y (14:00, 20:00)."""
+    tramos: list[tuple[time, time]] = []
+    cursor = apertura
+    for inicio_d, fin_d in sorted(descansos):
+        if inicio_d > cursor:
+            tramos.append((cursor, min(inicio_d, cierre)))
+        cursor = max(cursor, fin_d)
+        if cursor >= cierre:
+            break
+    if cursor < cierre:
+        tramos.append((cursor, cierre))
+    return [(a, b) for a, b in tramos if a < b]
 
-    while cursor + paso <= fin_jornada:
-        bloques.append(Franja(inicio=cursor.time(), fin=(cursor + paso).time()))
-        cursor += paso
+
+def _generar_bloques(
+    apertura: time,
+    cierre: time,
+    descansos: list[tuple[time, time]],
+    duracion: int,
+) -> list[Franja]:
+    """Bloques consecutivos dentro de cada tramo de atención.
+
+    IMPORTANTE -- por qué se generan por tramo y no de corrido desde la apertura:
+    con una rejilla única desde las 7:00, tras un descanso de 12:00 a 14:00 el
+    siguiente bloque caía a las 14:30 (porque el de 13:45 chocaba con el descanso y se
+    descartaba), y se perdían 30 minutos de agenda todos los días. Reiniciando en cada
+    tramo, el primer bloque de la tarde vuelve a ser a las 14:00 en punto y el último
+    del día cierra exactamente a la hora de cierre (19:15-20:00), que es justo lo que
+    pide la regla del negocio.
+    """
+    bloques: list[Franja] = []
+    paso = timedelta(minutes=duracion)
+    hoy = date.today()
+
+    for tramo_inicio, tramo_fin in _tramos_abiertos(apertura, cierre, descansos):
+        cursor = datetime.combine(hoy, tramo_inicio)
+        limite = datetime.combine(hoy, tramo_fin)
+        while cursor + paso <= limite:
+            bloques.append(Franja(inicio=cursor.time(), fin=(cursor + paso).time()))
+            cursor += paso
 
     return bloques
 
@@ -98,25 +136,24 @@ def horarios_disponibles(
     excepciones: dict[date, dict],
     citas_activas: list[tuple[time, time]],
     ahora: datetime | None = None,
+    duracion: int = DURACION_MINUTOS,
 ) -> list[Franja]:
     """Calcula las horas realmente libres de un dia. La UNICA fuente de verdad.
 
     `citas_activas`: horas ya ocupadas ese dia (estado distinto de "cancelada").
     `ahora`: se recibe por parametro (no se usa datetime.now() adentro) para que las
         pruebas puedan fijar una hora exacta sin depender del reloj real.
+    `duracion`: minutos que dura una cita. Configurable desde el panel (se guarda en
+        services.duration_minutes); 45 es solo el valor por defecto.
     """
     horario = resolver_horario_del_dia(fecha, horario_semanal, descansos_por_dia, excepciones)
     if horario.cerrado or horario.apertura is None or horario.cierre is None:
         return []
 
     libres = []
-    for bloque in _generar_bloques(horario.apertura, horario.cierre):
-        si_choca_descanso = any(
-            bloque.se_solapa_con(d_inicio, d_fin) for d_inicio, d_fin in horario.descansos
-        )
-        if si_choca_descanso:
-            continue
-
+    for bloque in _generar_bloques(
+        horario.apertura, horario.cierre, horario.descansos, duracion
+    ):
         si_choca_cita = any(
             bloque.se_solapa_con(c_inicio, c_fin) for c_inicio, c_fin in citas_activas
         )
@@ -138,9 +175,11 @@ def proximo_espacio(
     excepciones: dict[date, dict],
     citas_activas: list[tuple[time, time]],
     ahora: datetime,
+    duracion: int = DURACION_MINUTOS,
 ) -> Franja | None:
     """El primer espacio libre de hoy en adelante. Usado por la tarjeta 'Proximo espacio'."""
     libres = horarios_disponibles(
-        fecha, horario_semanal, descansos_por_dia, excepciones, citas_activas, ahora=ahora
+        fecha, horario_semanal, descansos_por_dia, excepciones, citas_activas,
+        ahora=ahora, duracion=duracion,
     )
     return libres[0] if libres else None
