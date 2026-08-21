@@ -624,6 +624,80 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     margin: 26px 0 14px;
 }}
 
+/* ---------- Pasos de la reserva ---------- */
+.pasos {{
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; flex-wrap: wrap;
+    margin: 4px 0 20px;
+}}
+.paso {{
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: {GRIS_TENUE};
+}}
+.paso .num {{
+    width: 23px; height: 23px; border-radius: 50%;
+    border: 1px solid {LINEA};
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    transition: all 0.2s ease;
+}}
+.paso.activo {{ color: {DORADO_CLARO}; }}
+.paso.activo .num {{
+    border-color: {DORADO};
+    background: rgba(201,162,39,0.16);
+    color: {DORADO_CLARO};
+    box-shadow: 0 0 0 3px rgba(201,162,39,0.10);
+}}
+.paso.hecho {{ color: {GRIS_CALIDO}; }}
+.paso.hecho .num {{
+    background: linear-gradient(180deg, {DORADO_CLARO}, {DORADO});
+    border-color: transparent; color: #14100A;
+}}
+.pasos .sep {{ width: 14px; height: 1px; background: {LINEA}; }}
+
+/* Resumen de lo que lleva elegido */
+.resumen-sel {{
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 22px;
+    background: linear-gradient(140deg, rgba(201,162,39,0.09), {SUPERFICIE} 70%);
+    border: 1px solid rgba(201,162,39,0.4);
+    border-radius: 3px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+}}
+.resumen-sel .campo {{ text-align: center; }}
+.resumen-sel .et {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: {GRIS_CALIDO}; margin-bottom: 3px;
+}}
+.resumen-sel .va {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 16px; font-weight: 500; color: {DORADO_CLARO};
+}}
+
+/* Encabezado de franja (Mañana / Tarde) sobre la rejilla de horas */
+.franja-titulo {{
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: {DORADO};
+    margin: 18px 0 10px;
+}}
+.franja-titulo::after {{
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, {LINEA}, transparent);
+}}
+
+/* Selector de servicio (st.segmented_control) con el acabado de la app */
+div[data-testid="stSegmentedControl"] button {{
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase;
+    padding: 11px 14px !important;
+}}
+
 /* ---------- Confirmación de cita ---------- */
 .ticket {{
     background: linear-gradient(150deg, rgba(201,162,39,0.10), {SUPERFICIE} 65%);
@@ -887,6 +961,38 @@ def url_whatsapp(telefono: str, producto: str = "") -> str:
     else:
         texto = "¡Hola! Quiero preguntar por los productos."
     return f"https://wa.me/{numero}?text={quote(texto)}"
+
+
+def pasos(etiquetas: list[str], actual: int):
+    """Indicador de progreso de la reserva. `actual` es el índice del paso en curso;
+    los anteriores se marcan como hechos. Sirve para que el cliente vea de una cuánto
+    le falta, en vez de encontrarse los pasos apareciendo de la nada."""
+    partes = []
+    for i, etiqueta in enumerate(etiquetas):
+        if i < actual:
+            clase, num = "paso hecho", "✓"
+        elif i == actual:
+            clase, num = "paso activo", str(i + 1)
+        else:
+            clase, num = "paso", str(i + 1)
+        partes.append(f'<div class="{clase}"><span class="num">{num}</span>{etiqueta}</div>')
+    st.markdown(
+        '<div class="pasos">' + '<span class="sep"></span>'.join(partes) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def resumen_seleccion(campos: list[tuple[str, str]]):
+    """Tarjeta con lo que el cliente lleva elegido: (etiqueta, valor)."""
+    celdas = "".join(
+        f'<div class="campo"><div class="et">{et}</div><div class="va">{va}</div></div>'
+        for et, va in campos
+    )
+    st.markdown(f'<div class="resumen-sel">{celdas}</div>', unsafe_allow_html=True)
+
+
+def franja_titulo(texto: str):
+    st.markdown(f'<div class="franja-titulo">{texto}</div>', unsafe_allow_html=True)
 
 
 def seccion(titulo: str, eyebrow: str = "", ancla: str = "", compacta: bool = False):

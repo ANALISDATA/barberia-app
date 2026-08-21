@@ -83,9 +83,18 @@ def render():
     if st.session_state.get("mostrar_nueva_cita"):
         _formulario_nueva_cita(hoy, libres, duracion)
 
+    st.divider()
+    # Navegación INTERNA (st.switch_page), no un enlace: un enlace recarga la página
+    # entera y Streamlit crea una sesión nueva, así que se perdería el inicio de sesión
+    # y la página de configuración ni siquiera existiría para esa sesión ("Page not
+    # found"). Comprobado en el navegador.
+    if st.button("⚙️  Configuración", width="stretch"):
+        from app.navegacion import admin_config
+
+        st.switch_page(admin_config)
+
     # Cerrar sesión también aquí, al final de la página: la flecha del menú lateral es
     # diminuta y nadie la busca. Este botón se ve y se entiende sin explicación.
-    st.divider()
     if st.button("Cerrar sesión", width="stretch"):
         st.session_state["admin_autenticado"] = False
         st.rerun()
@@ -170,6 +179,8 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
             f"{duracion}. Se suman al descanso para que no queden sueltos a mitad del día."
         )
 
+    _consolidado_del_dia(reservadas, fecha)
+
 
 def _selector_de_dia(hoy):
     """Días de la semana actual, de lunes a domingo. Arranca en el día de hoy."""
@@ -224,10 +235,11 @@ def _tabla_reservadas(reservadas, fecha, hoy):
         nombre = (c.get("customers") or {}).get("name", "—")
         telefono = (c.get("customers") or {}).get("phone", "")
         servicio = NOMBRES_SERVICIO.get(c["service_type"], c["service_type"])
+
         tema.fila_cita(
             hora.strftime("%H:%M"),
             nombre,
-            f'{servicio} · {_pesos(c["price_at_booking"])} · {telefono}',
+            f'{servicio} · {telefono} · {_pesos(c["price_at_booking"])}',
             tema.pildora_estado(c["status"]),
         )
         # Las acciones sólo tienen sentido mientras la cita siga pendiente.
@@ -244,6 +256,53 @@ def _tabla_reservadas(reservadas, fecha, hoy):
                     c["id"], "cancelada", motivo="Cancelada por el administrador"
                 )
                 st.rerun()
+
+
+def _consolidado_del_dia(reservadas, fecha):
+    """Tabla para cuadrar los ingresos: se ajusta cita por cita lo que de verdad se
+    cobró. Existe porque el barbero no le cobra lo mismo a todo el mundo -- el precio
+    del servicio es sólo el punto de partida.
+
+    Sólo entran las citas ATENDIDAS: son las únicas que suman a los ingresos, así que
+    son las únicas cuyo valor tiene sentido cuadrar.
+    """
+    atendidas = [c for c in reservadas if c["status"] == "atendida"]
+    if not atendidas:
+        return
+
+    tema.seccion("Consolidado del día", eyebrow="Ajusta lo que cobraste", compacta=True)
+
+    with st.form(f"consolidado_{fecha}"):
+        nuevos = {}
+        for c in sorted(atendidas, key=lambda x: x["start_time"]):
+            hora = time.fromisoformat(c["start_time"]).strftime("%H:%M")
+            nombre = (c.get("customers") or {}).get("name", "—")
+            servicio = NOMBRES_SERVICIO.get(c["service_type"], c["service_type"])
+            nuevos[c["id"]] = st.number_input(
+                f"{hora} · {nombre} · {servicio}",
+                min_value=0,
+                step=1000,
+                value=int(c["price_at_booking"]),
+                key=f"cons_{c['id']}",
+            )
+        guardar = st.form_submit_button(
+            "Guardar valores del día", type="primary", width="stretch"
+        )
+
+    total = sum(int(v) for v in nuevos.values())
+    st.caption(f"Total del día con estos valores: {_pesos(total)}")
+
+    if guardar:
+        cambiadas = 0
+        for cita in atendidas:
+            nuevo = int(nuevos[cita["id"]])
+            if nuevo != int(cita["price_at_booking"]):
+                db.actualizar_precio_cita(cita["id"], nuevo)
+                cambiadas += 1
+        st.success(
+            f"{cambiadas} cita(s) actualizada(s)." if cambiadas else "No hubo cambios."
+        )
+        st.rerun()
 
 
 def _tabla_disponibles(libres, fecha, hoy, duracion):

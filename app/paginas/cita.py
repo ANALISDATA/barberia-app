@@ -8,7 +8,7 @@ Pensada para celular primero: una sola columna, botones grandes, y sólo se mues
 paso siguiente cuando el anterior está resuelto (elegir día y servicio -> ver horas ->
 dejar datos). Así el cliente nunca ve un formulario largo de golpe.
 """
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import streamlit as st
 
@@ -16,6 +16,8 @@ from app import db
 from app.disponibilidad import horarios_disponibles
 from app.ui import tema
 from config import NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
+
+PASOS = ["Día", "Servicio", "Hora", "Datos"]
 
 
 def _pesos(valor: int) -> str:
@@ -37,6 +39,35 @@ def _sin_conexion():
         titulo="Ya volvemos",
         frase="Estamos alistando la agenda. Inténtalo en unos minutos.",
     )
+
+
+def _rejilla_de_horas(libres):
+    """Las horas, separadas en mañana y tarde.
+
+    Se agrupan porque una tira de 14 horas seguidas obliga a leerlas todas para
+    encontrar la que sirve; con los dos bloques, el cliente salta directo al que le
+    conviene. Van de a tres por fila: en celular son botones cómodos de tocar con el
+    pulgar sin que el texto se parta en dos líneas.
+    """
+    manana = [f for f in libres if f.inicio < time(12, 0)]
+    tarde = [f for f in libres if f.inicio >= time(12, 0)]
+
+    for titulo, grupo in (("Mañana", manana), ("Tarde", tarde)):
+        if not grupo:
+            continue
+        tema.franja_titulo(titulo)
+        columnas = st.columns(3)
+        for i, franja in enumerate(grupo):
+            seleccionada = st.session_state.get("reserva_hora") == franja.inicio
+            with columnas[i % 3]:
+                if st.button(
+                    _hora_compacta(franja.inicio),
+                    key=f"hora_{franja.inicio}",
+                    type="primary" if seleccionada else "secondary",
+                    width="stretch",
+                ):
+                    st.session_state["reserva_hora"] = franja.inicio
+                    st.rerun()
 
 
 def _reiniciar():
@@ -68,19 +99,40 @@ def render():
     )
 
     hoy = datetime.now(ZONA_HORARIA).date()
+
+    # La barra de pasos se dibuja UNA sola vez, arriba. Repetirla antes de cada bloque
+    # (como estaba) llenaba la pantalla de barras iguales y alejaba el contenido.
+    # El día y el servicio siempre tienen un valor por defecto, así que el progreso
+    # real depende de si ya se eligió la hora.
+    paso_actual = 3 if st.session_state.get("reserva_hora") else 2
+    tema.pasos(PASOS, paso_actual)
+
+    # ---------- Paso 1: el día ----------
+    tema.seccion("¿Cuándo vienes?", eyebrow="Paso 1 de 4", compacta=False)
     fecha = st.date_input(
-        "¿Qué día quieres venir?",
+        "Elige el día",
         value=hoy,
         min_value=hoy,
         max_value=hoy + timedelta(days=45),
         format="DD/MM/YYYY",
+        label_visibility="collapsed",
     )
-    tipo = st.radio(
-        "¿Qué servicio deseas?",
+    st.caption(f"📅 {fecha_larga(fecha)}")
+
+    # ---------- Paso 2: el servicio ----------
+    tema.seccion("¿Qué te hacemos?", eyebrow="Paso 2 de 4", compacta=False)
+    tipo = st.segmented_control(
+        "Servicio",
         options=list(servicios.keys()),
         format_func=lambda t: NOMBRES_SERVICIO.get(t, t),
-        horizontal=True,
+        default=list(servicios.keys())[0],
+        key="reserva_servicio",
+        label_visibility="collapsed",
+        width="stretch",
     )
+    # segmented_control devuelve None si se deselecciona: se vuelve al primero para no
+    # quedar sin servicio elegido y con la pantalla en blanco sin explicación.
+    tipo = tipo or list(servicios.keys())[0]
 
     # El precio NO se le muestra al cliente: el barbero no le cobra lo mismo a todo el
     # mundo. Se sigue guardando en la cita (precio historico) porque de ahi salen los
@@ -97,7 +149,13 @@ def render():
         ahora=ahora, duracion=duracion,
     )
 
-    tema.seccion("Horas disponibles", eyebrow=fecha_larga(fecha))
+    # ---------- Paso 3: la hora ----------
+    tema.seccion("¿A qué hora?", eyebrow="Paso 3 de 4", compacta=False)
+    tema.resumen_seleccion([
+        ("Día", fecha.strftime("%d/%m")),
+        ("Servicio", NOMBRES_SERVICIO.get(tipo, tipo)),
+        ("Duración", f"{duracion} min"),
+    ])
 
     if not libres:
         tema.aviso_vacio(
@@ -111,31 +169,28 @@ def render():
         st.session_state["reserva_hora"] = None
     st.session_state["reserva_fecha"] = fecha
 
-    # 3 columnas: en celular quedan botones cómodos de tocar sin que el texto se parta.
-    columnas = st.columns(3)
-    for i, franja in enumerate(libres):
-        seleccionada = st.session_state.get("reserva_hora") == franja.inicio
-        with columnas[i % 3]:
-            if st.button(
-                _hora_compacta(franja.inicio),
-                key=f"hora_{franja.inicio}",
-                type="primary" if seleccionada else "secondary",
-                width="stretch",
-            ):
-                st.session_state["reserva_hora"] = franja.inicio
-                st.rerun()
+    _rejilla_de_horas(libres)
 
     hora_elegida = st.session_state.get("reserva_hora")
     if not hora_elegida:
+        st.caption("Toca una hora para continuar.")
         tema.pie_de_pagina(negocio)
         return
 
-    tema.seccion("Tus datos", eyebrow=f"{fecha_larga(fecha)} · {_hora_bonita(hora_elegida)}")
+    # ---------- Paso 4: los datos ----------
+    tema.seccion("¿Quién viene?", eyebrow="Paso 4 de 4", compacta=False)
+    tema.resumen_seleccion([
+        ("Día", fecha.strftime("%d/%m")),
+        ("Hora", _hora_compacta(hora_elegida)),
+        ("Servicio", NOMBRES_SERVICIO.get(tipo, tipo)),
+    ])
 
     with st.form("form_datos_cliente"):
-        nombre = st.text_input("Tu nombre")
-        telefono = st.text_input("Tu teléfono")
-        enviado = st.form_submit_button("Confirmar mi cita", type="primary", width="stretch")
+        nombre = st.text_input("Tu nombre", placeholder="Como te llamas")
+        telefono = st.text_input("Tu teléfono", placeholder="Para avisarte de tu cita")
+        enviado = st.form_submit_button(
+            "Confirmar mi cita", type="primary", width="stretch"
+        )
 
     if not enviado:
         return

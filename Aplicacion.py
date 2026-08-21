@@ -5,7 +5,14 @@ Se llama `Aplicacion.py` y no `app.py` a propósito, para no chocar con el paque
 """
 import streamlit as st
 
-from app.navegacion import admin_inicio, admin_login, cita, inicio, productos
+from app.navegacion import (
+    admin_config,
+    admin_inicio,
+    admin_login,
+    cita,
+    inicio,
+    productos,
+)
 
 st.set_page_config(page_title="Barbería", page_icon="💈", layout="centered")
 
@@ -26,7 +33,7 @@ st.set_page_config(page_title="Barbería", page_icon="💈", layout="centered")
 # Ademas su enlace "Inicio" apuntaba a la pagina donde ya estabas. "Cerrar sesion"
 # ahora esta al final del panel, a la vista.
 if st.session_state.get("admin_autenticado"):
-    paginas = [inicio, cita, productos, admin_inicio]
+    paginas = [inicio, cita, productos, admin_inicio, admin_config]
 else:
     paginas = [inicio, cita, productos, admin_login]
 

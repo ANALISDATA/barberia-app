@@ -24,3 +24,6 @@ admin_login = st.Page(
 admin_inicio = st.Page(
     "app/paginas/admin_inicio.py", title="Inicio", icon="🏠", url_path="panel",
 )
+admin_config = st.Page(
+    "app/paginas/admin_config.py", title="Configuración", icon="⚙️", url_path="configuracion",
+)

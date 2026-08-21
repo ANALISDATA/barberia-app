@@ -144,6 +144,111 @@ def obtener_descansos() -> dict[int, list[tuple[time, time]]]:
     return resultado
 
 
+# ---------------------------------------------------------------------------
+# Configuracion -- escritura (pagina "Configuracion" del panel)
+# ---------------------------------------------------------------------------
+
+def _a_dia_bd(dia_python: int) -> int:
+    """Python usa 0=lunes; la base de datos, 0=domingo. Esta es la conversion inversa
+    de la que hacen `obtener_horario_semanal` y `obtener_descansos`. Vive aqui, junto a
+    ellas, para que las dos direcciones esten siempre a la vista y no se desincronicen."""
+    return (dia_python + 1) % 7
+
+
+def guardar_horario_dia(
+    dia_python: int, inicio: time | None, fin: time | None, activo: bool
+) -> None:
+    """Crea o actualiza el horario de un dia de la semana."""
+    dia_bd = _a_dia_bd(dia_python)
+    existente = (
+        _cliente()
+        .table(TABLA_HORARIOS)
+        .select("id")
+        .eq("business_id", NEGOCIO_ID)
+        .eq("day_of_week", dia_bd)
+        .execute()
+    )
+    datos = {
+        "business_id": NEGOCIO_ID,
+        "day_of_week": dia_bd,
+        # Un dia cerrado conserva su horario y solo apaga `active`: asi, al volver a
+        # abrirlo, no hay que escribir las horas otra vez.
+        "start_time": (inicio or time(7, 0)).isoformat(),
+        "end_time": (fin or time(20, 0)).isoformat(),
+        "active": activo,
+    }
+    if existente.data:
+        _cliente().table(TABLA_HORARIOS).update(datos).eq(
+            "id", existente.data[0]["id"]
+        ).execute()
+    else:
+        _cliente().table(TABLA_HORARIOS).insert(datos).execute()
+
+
+def guardar_descansos_dia(dia_python: int, descansos: list[tuple[time, time]]) -> None:
+    """Reemplaza TODOS los descansos de un dia por la lista que se pase.
+
+    Se borra y se vuelve a escribir en vez de ir comparando uno por uno: son dos o tres
+    filas por dia y asi no hay forma de que quede un descanso viejo colgado.
+    """
+    dia_bd = _a_dia_bd(dia_python)
+    horario = (
+        _cliente()
+        .table(TABLA_HORARIOS)
+        .select("id")
+        .eq("business_id", NEGOCIO_ID)
+        .eq("day_of_week", dia_bd)
+        .execute()
+    )
+    if not horario.data:
+        return  # sin horario ese dia no hay a que colgar los descansos
+    horario_id = horario.data[0]["id"]
+
+    _cliente().table(TABLA_DESCANSOS).delete().eq("working_hours_id", horario_id).execute()
+    filas = [
+        {
+            "working_hours_id": horario_id,
+            "start_time": inicio.isoformat(),
+            "end_time": fin.isoformat(),
+        }
+        for inicio, fin in descansos
+        if inicio < fin
+    ]
+    if filas:
+        _cliente().table(TABLA_DESCANSOS).insert(filas).execute()
+
+
+def guardar_duracion_cita(minutos: int) -> None:
+    """Todos los servicios comparten duracion: la barberia agenda bloques iguales sin
+    importar el corte."""
+    _cliente().table(TABLA_SERVICIOS).update({"duration_minutes": minutos}).eq(
+        "business_id", NEGOCIO_ID
+    ).execute()
+
+
+def guardar_precio_servicio(tipo: str, precio: int) -> None:
+    _cliente().table(TABLA_SERVICIOS).update({"price": precio}).eq(
+        "business_id", NEGOCIO_ID
+    ).eq("type", tipo).execute()
+
+
+def guardar_datos_negocio(datos: dict) -> None:
+    _cliente().table(TABLA_NEGOCIO).update(datos).eq("id", NEGOCIO_ID).execute()
+
+
+def actualizar_precio_cita(cita_id: str, precio: int) -> None:
+    """Cambia lo que se le cobro a UNA cita concreta.
+
+    Existe porque el barbero no le cobra lo mismo a todo el mundo: el precio del
+    servicio es solo el punto de partida, y al cerrar el dia ajusta lo que de verdad
+    cobro para que los ingresos cuadren. No toca el precio del servicio ni el de las
+    demas citas.
+    """
+    _cliente().table(TABLA_CITAS).update({"price_at_booking": precio}).eq(
+        "id", cita_id
+    ).execute()
+
+
 def obtener_excepciones(desde: date, hasta: date) -> dict[date, dict]:
     r = (
         _cliente()
