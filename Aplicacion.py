@@ -1,7 +1,7 @@
 """Punto de entrada. Enruta entre la página pública de reservas y el panel del administrador.
 
 Se llama `Aplicacion.py` y no `app.py` a propósito, para no chocar con el paquete `app/`
-(mismo criterio que `EXTRACCION OP/Aplicacion.py`). Arranca con `▶ ABRIR LA APP.bat`.
+(mismo criterio que `EXTRACCION OP/Aplicacion.py`). Arranca con `ABRIR LA APP.bat`.
 """
 import streamlit as st
 

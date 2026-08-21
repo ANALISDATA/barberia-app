@@ -66,7 +66,7 @@ def main() -> int:
     servicios = db.obtener_servicios()
     print(f"✔ Servicios activos: {len(servicios)}")
     print()
-    print("Listo. Ya puedes abrir la app con  ▶ ABRIR LA APP.bat")
+    print("Listo. Ya puedes abrir la app con  ABRIR LA APP.bat")
     return 0
 
 

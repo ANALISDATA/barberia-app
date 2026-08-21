@@ -58,7 +58,7 @@ echo.
 echo ==========================================================
 echo    LISTO.
 echo.
-echo    Para abrirla: doble clic en  ▶ ABRIR LA APP.bat
+echo    Para abrirla: doble clic en  ABRIR LA APP.bat
 echo ==========================================================
 echo.
 pause

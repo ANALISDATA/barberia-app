@@ -14,7 +14,7 @@ reserven solos, y un panel privado para administrar el día a día.
 
 ## Uso diario
 
-Doble clic en **`▶ ABRIR LA APP.bat`**. Se abre sola en el navegador. Deja la ventana
+Doble clic en **`ABRIR LA APP.bat`**. Se abre sola en el navegador. Deja la ventana
 negra abierta mientras la uses.
 
 ## Estado actual
