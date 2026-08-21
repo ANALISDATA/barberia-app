@@ -12,6 +12,9 @@ import streamlit as st
 reservar = st.Page(
     "app/paginas/reservar.py", title="Reservar", icon="💈", default=True, url_path="",
 )
+productos = st.Page(
+    "app/paginas/productos.py", title="Productos", icon="🧴", url_path="productos",
+)
 admin_login = st.Page(
     "app/paginas/admin_login.py", title="Panel", icon="🔒", url_path="admin",
 )

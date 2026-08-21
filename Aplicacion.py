@@ -5,7 +5,7 @@ Se llama `Aplicacion.py` y no `app.py` a propósito, para no chocar con el paque
 """
 import streamlit as st
 
-from app.navegacion import admin_inicio, admin_login, reservar
+from app.navegacion import admin_inicio, admin_login, productos, reservar
 
 st.set_page_config(page_title="Barbería", page_icon="💈", layout="centered")
 
@@ -27,9 +27,9 @@ if st.session_state.get("admin_autenticado"):
         if st.button("Cerrar sesión"):
             st.session_state["admin_autenticado"] = False
             st.switch_page(reservar)
-    paginas = [reservar, admin_inicio]
+    paginas = [reservar, productos, admin_inicio]
 else:
-    paginas = [reservar, admin_login]
+    paginas = [reservar, productos, admin_login]
 
 navegacion = st.navigation(paginas, position="hidden")
 navegacion.run()

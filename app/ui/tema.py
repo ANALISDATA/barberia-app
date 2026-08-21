@@ -181,6 +181,30 @@ h1, h2, h3, h4 {{
 }}
 .hero-cta:active {{ transform: translateY(0); }}
 
+/* Botón secundario: mismo tamaño y peso que el principal pero en contorno, para que
+   se lea como "la otra cosa que puedes hacer aquí" sin competir con pedir la cita. */
+.hero-cta2 {{
+    display: block;
+    width: fit-content;
+    margin: 16px auto 0;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.16em;
+    text-indent: 0.16em;
+    text-transform: uppercase;
+    padding: 13px 32px;
+    border: 1px solid rgba(201,162,39,0.55);
+    border-radius: 3px;
+    color: {DORADO_CLARO} !important;
+    text-decoration: none !important;
+    transition: all 0.18s ease;
+}}
+.hero-cta2:hover {{
+    background: rgba(201,162,39,0.12);
+    border-color: {DORADO};
+}}
+
 /* ---------- Barra de datos del negocio ---------- */
 .hero-barra {{
     position: relative; z-index: 2;
@@ -438,6 +462,71 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 .pildora-cancelada {{ background: rgba(217,122,108,0.15); color: {ROJO_ALERTA}; }}
 .pildora-no_asistio {{ background: rgba(217,122,108,0.15); color: {ROJO_ALERTA}; }}
 
+/* ---------- Catálogo de productos ---------- */
+.producto {{
+    display: flex;
+    gap: 14px;
+    align-items: stretch;
+    background: {SUPERFICIE};
+    border: 1px solid {LINEA};
+    border-radius: 3px;
+    padding: 12px;
+    margin-bottom: 12px;
+}}
+.producto-foto {{
+    flex: 0 0 104px;
+    width: 104px; height: 104px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: #FFFFFF;   /* las fotos vienen recortadas sobre fondo blanco */
+    display: flex; align-items: center; justify-content: center;
+}}
+.producto-foto img {{ width: 100%; height: 100%; object-fit: contain; }}
+.producto-info {{ flex: 1; min-width: 0; display: flex; flex-direction: column; }}
+.producto-nombre {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 17px; font-weight: 500;
+    color: {BLANCO_CALIDO};
+    line-height: 1.2;
+}}
+.producto-precio {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px; font-weight: 600;
+    color: {DORADO_CLARO};
+    margin: 2px 0 5px;
+}}
+.producto-desc {{
+    font-size: 13px; line-height: 1.45;
+    color: {GRIS_CALIDO};
+    margin-bottom: 9px;
+}}
+.producto-wa {{
+    align-self: flex-start;
+    margin-top: auto;
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: {DORADO} !important;
+    text-decoration: none !important;
+    border: 1px solid rgba(201,162,39,0.45);
+    border-radius: 2px;
+    padding: 7px 13px;
+    transition: all 0.16s ease;
+}}
+.producto-wa:hover {{
+    background: rgba(201,162,39,0.12);
+    border-color: {DORADO};
+    color: {DORADO_CLARO} !important;
+}}
+.cierre-catalogo {{
+    text-align: center;
+    color: {GRIS_CALIDO};
+    font-size: 14.5px;
+    line-height: 1.6;
+    margin: 26px 0 14px;
+}}
+
 /* ---------- Confirmación de cita ---------- */
 .ticket {{
     background: linear-gradient(150deg, rgba(201,162,39,0.10), {SUPERFICIE} 65%);
@@ -503,6 +592,10 @@ h1 a, h2 a, h3 a, .stMarkdown a[href^="#"] svg {{ display: none !important; }}
         padding-right: 4px !important;
         font-size: 13px !important;
     }}
+
+    .producto-foto {{ flex-basis: 84px; width: 84px; height: 84px; }}
+    .producto-nombre {{ font-size: 15.5px; }}
+    .producto-desc {{ font-size: 12.5px; }}
 }}
 </style>
 """
@@ -601,9 +694,78 @@ def hero_publico(negocio: dict, resumen_horario: str = "", url_waze: str = ""):
         '<div class="hero-cinta"><i></i>Barbería<i class="der"></i></div>'
         f'<p class="hero-tagline">{descripcion}</p>'
         '<a class="hero-cta" href="#reservar">Pide aquí tu cita</a>'
+        '<a class="hero-cta2" href="/productos" target="_self">Ver nuestros productos</a>'
         f"</div>{barra}</div>",
         unsafe_allow_html=True,
     )
+
+
+def hero_simple(titulo: str, cinta: str = "", frase: str = ""):
+    """Portada corta, para páginas internas (catálogo, confirmación). Mismo lenguaje
+    visual que la portada principal pero sin emblema ni barra de datos."""
+    cinta_html = (
+        f'<div class="hero-cinta"><i></i>{cinta}<i class="der"></i></div>' if cinta else ""
+    )
+    frase_html = f'<p class="hero-tagline">{frase}</p>' if frase else ""
+    st.markdown(
+        '<div class="hero"><div class="hero-inner" style="padding:44px 22px 36px;">'
+        f'<h1 class="hero-nombre" style="font-size:clamp(38px,9vw,68px)!important;">{titulo}</h1>'
+        f"{cinta_html}{frase_html}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+@st.cache_data(show_spinner=False)
+def _imagen_incrustada(ruta: str) -> str:
+    """Convierte una imagen del disco en un data URI para poder meterla dentro del HTML
+    de la tarjeta. Se hace así (y no con st.image) porque st.image dibuja la imagen en
+    su propio bloque, fuera de la tarjeta, y no se puede maquetar al lado del texto.
+    Va cacheado: el archivo no cambia entre recargas."""
+    import base64
+    from pathlib import Path
+
+    datos = Path(ruta).read_bytes()
+    return "data:image/jpeg;base64," + base64.b64encode(datos).decode()
+
+
+def tarjeta_producto(
+    nombre: str, precio: str, descripcion: str, imagen: str, url_whatsapp: str
+):
+    try:
+        src = _imagen_incrustada(imagen)
+        foto = f'<div class="producto-foto"><img src="{src}" alt="{nombre}"></div>'
+    except FileNotFoundError:
+        # Si falta la foto, la tarjeta sigue siendo útil (nombre, precio y contacto).
+        foto = ""
+
+    st.markdown(
+        f'<div class="producto">{foto}<div class="producto-info">'
+        f'<div class="producto-nombre">{nombre}</div>'
+        f'<div class="producto-precio">{precio}</div>'
+        f'<div class="producto-desc">{descripcion}</div>'
+        f'<a class="producto-wa" href="{url_whatsapp}" target="_blank" rel="noopener">'
+        f"Preguntar por este ›</a>"
+        f"</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def url_whatsapp(telefono: str, producto: str = "") -> str:
+    """Abre WhatsApp con el mensaje ya escrito. Si se pasa un producto, el mensaje lo
+    nombra, para que el cliente no tenga que explicar qué quiere."""
+    from urllib.parse import quote
+
+    solo_digitos = "".join(c for c in (telefono or "") if c.isdigit())
+    if not solo_digitos:
+        return ""
+    # Colombia: si viene sin indicativo (10 dígitos), se antepone el 57.
+    numero = solo_digitos if solo_digitos.startswith("57") else f"57{solo_digitos}"
+
+    if producto:
+        texto = f"¡Hola! Me interesa el producto: {producto}. ¿Está disponible?"
+    else:
+        texto = "¡Hola! Quiero preguntar por los productos."
+    return f"https://wa.me/{numero}?text={quote(texto)}"
 
 
 def seccion(titulo: str, eyebrow: str = "", ancla: str = "", compacta: bool = False):

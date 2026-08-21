@@ -83,12 +83,10 @@ def render():
         horizontal=True,
     )
 
+    # El precio NO se le muestra al cliente: el barbero no le cobra lo mismo a todo el
+    # mundo. Se sigue guardando en la cita (precio historico) porque de ahi salen los
+    # ingresos del panel, pero es informacion interna.
     precio = _precio_de(negocio, servicios[tipo])
-    st.markdown(
-        f'<div class="etiqueta" style="text-align:center;margin:6px 0 2px;">Valor del servicio</div>'
-        f'<div class="valor-medio" style="text-align:center;margin-bottom:10px;">{_pesos(precio)}</div>',
-        unsafe_allow_html=True,
-    )
 
     descansos = db.obtener_descansos()
     excepciones = db.obtener_excepciones(fecha, fecha)
@@ -196,8 +194,7 @@ def _paso_exito(negocio: dict):
         f'<div class="ticket">'
         f'<div class="dia">{fecha_larga(fecha)}</div>'
         f'<div class="hora-grande">{_hora_bonita(hora)}</div>'
-        f'<div class="detalle">{NOMBRES_SERVICIO.get(cita["service_type"], "")} · '
-        f'{_pesos(cita["price_at_booking"])}</div>'
+        f'<div class="detalle">{NOMBRES_SERVICIO.get(cita["service_type"], "")}</div>'
         f"</div>",
         unsafe_allow_html=True,
     )
