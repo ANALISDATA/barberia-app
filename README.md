@@ -8,7 +8,7 @@ reserven solos, y un panel privado para administrar el día a día.
 1. Doble clic en **`1 - Instalar.bat`**. Instala todo lo necesario (tarda unos minutos).
 2. Sigue las instrucciones que te muestre para conectar Supabase (crear el proyecto y
    pegar 3 datos). Se puede repetir las veces que haga falta con doble clic en
-   **`Conectar_Supabase.py`**.
+   **`2 - Conectar Supabase.bat`**.
 3. En `.streamlit/secrets.toml` (cópialo desde `secrets.toml.example`) también defines
    tu propia contraseña de administrador (`admin_password`).
 

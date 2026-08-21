@@ -12,6 +12,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# En Windows, la consola a veces usa una codificacion vieja (cp1252) que no sabe
+# imprimir tildes ni el simbolo ✔ -- forzamos UTF-8 para que nunca truene por eso,
+# sin depender de que quien lo ejecute haya hecho antes "chcp 65001".
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def main() -> int:
     print("=" * 70)
