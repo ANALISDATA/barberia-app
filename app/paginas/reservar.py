@@ -10,8 +10,11 @@ from config import NOMBRES_SERVICIO, ZONA_HORARIA
 
 
 def _sin_conexion():
-    st.markdown('<div class="hero-publico"><h1>💈 Estamos alistando la agenda</h1>'
-                "<p>Vuelve a intentarlo en unos minutos.</p></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="exito-publico"><h1>💈 Estamos alistando la agenda</h1>'
+        "<p>Vuelve a intentarlo en unos minutos.</p></div>",
+        unsafe_allow_html=True,
+    )
     st.caption("(Administrador: falta conectar Supabase — corre Conectar_Supabase.py)")
 
 
@@ -34,16 +37,12 @@ def render():
         _paso_exito(negocio)
         return
 
-    st.markdown(
-        f'<div class="hero-publico"><h1>💈 {negocio["name"]}</h1>'
-        f'<p>{negocio.get("description") or "Pide aquí tu cita"}</p></div>',
-        unsafe_allow_html=True,
-    )
-    if negocio.get("address") or negocio.get("phone"):
-        partes = [p for p in [negocio.get("address"), negocio.get("phone")] if p]
-        st.caption(" · ".join(partes))
+    horario_semanal = db.obtener_horario_semanal()
+    resumen_horario = tema.resumen_horario_texto(horario_semanal)
+    tema.hero_publico(negocio, resumen_horario)
 
-    st.divider()
+    st.markdown('<div id="elige-el-dia"></div>', unsafe_allow_html=True)
+    st.markdown("##### Elige tu cita")
 
     col_fecha, col_servicio = st.columns(2)
     with col_fecha:
@@ -60,7 +59,6 @@ def render():
             horizontal=True,
         )
 
-    horario_semanal = db.obtener_horario_semanal()
     descansos = db.obtener_descansos()
     excepciones = db.obtener_excepciones(fecha, fecha)
     citas_activas = db.obtener_citas_activas(fecha)
@@ -134,7 +132,7 @@ def _paso_exito(negocio: dict):
     fecha = date.fromisoformat(cita["date"])
     hora = cita["start_time"][:5]
     st.markdown(
-        '<div class="hero-publico"><h1>✔ ¡Cita confirmada!</h1></div>', unsafe_allow_html=True
+        '<div class="exito-publico"><h1>✔ ¡Cita confirmada!</h1></div>', unsafe_allow_html=True
     )
     st.markdown(
         f'<div class="tarjeta-dorada" style="text-align:center;">'
