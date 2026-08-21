@@ -13,7 +13,12 @@ import pandas as pd
 import streamlit as st
 
 from app import db
-from app.disponibilidad import horarios_disponibles, proximo_espacio
+from app.disponibilidad import (
+    analizar_jornada,
+    descansos_efectivos,
+    horarios_disponibles,
+    proximo_espacio,
+)
 from app.ui import graficos, tema
 from config import NOMBRES_DIA, NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
 
@@ -71,6 +76,7 @@ def render():
 
     _bloque_proximo_espacio(siguiente, libres, duracion)
     _bloque_proximas_citas(citas_hoy, ahora)
+    _bloque_jornada(hoy, horario_semanal, descansos, excepciones, citas_hoy, duracion)
     _bloque_hoy(citas_hoy, libres)
     _bloque_semana(hoy)
     _bloque_mes(hoy)
@@ -125,6 +131,71 @@ def _bloque_proximas_citas(citas_hoy, ahora):
             _hora_bonita(hora).replace(" a.m.", "").replace(" p.m.", ""),
             nombre,
             f'{servicio} · {_pesos(c["price_at_booking"])}',
+        )
+
+
+def _bloque_jornada(hoy, horario_semanal, descansos, excepciones, citas_hoy, duracion):
+    """La agenda del día completa, de la apertura al cierre, sin filtrar por la hora
+    actual: cada bloque con su cita o marcado como libre, y los descansos en su sitio.
+
+    Es la forma de comprobar de un vistazo que las citas van pegadas una detrás de otra
+    y que el único rato muerto es el descanso.
+    """
+    bloques, huecos = analizar_jornada(
+        hoy, horario_semanal, descansos, excepciones, duracion
+    )
+    if not bloques:
+        return
+
+    tema.seccion("Tu jornada", eyebrow=f"{len(bloques)} cortes caben hoy", compacta=True)
+
+    # Los huecos que se tocan se muestran como uno solo: si sobran 30 minutos justo
+    # antes del almuerzo, se ven como parte del almuerzo y no como un rato suelto.
+    muertos = descansos_efectivos(hoy, horario_semanal, descansos, excepciones, duracion)
+
+    por_hora = {
+        time.fromisoformat(c["start_time"]): c
+        for c in citas_hoy
+        if c["status"] != "cancelada"
+    }
+
+    with st.expander("Ver la agenda de hoy hora por hora"):
+        pendientes = list(muertos)
+        for bloque in bloques:
+            while pendientes and pendientes[0][0] <= bloque.inicio:
+                inicio_m, fin_m = pendientes.pop(0)
+                tema.fila_descanso(
+                    f"{inicio_m.strftime('%H:%M')} – {fin_m.strftime('%H:%M')}", "Descanso"
+                )
+
+            cita = por_hora.get(bloque.inicio)
+            if cita:
+                nombre = (cita.get("customers") or {}).get("name", "—")
+                servicio = NOMBRES_SERVICIO.get(cita["service_type"], cita["service_type"])
+                tema.fila_cita(
+                    bloque.inicio.strftime("%H:%M"),
+                    nombre,
+                    f'{servicio} · {_pesos(cita["price_at_booking"])}',
+                    tema.pildora_estado(cita["status"]),
+                )
+            else:
+                tema.fila_cita(
+                    bloque.inicio.strftime("%H:%M"),
+                    "Libre",
+                    f"{duracion} minutos disponibles",
+                    libre=True,
+                )
+        for inicio_m, fin_m in pendientes:
+            tema.fila_descanso(
+                f"{inicio_m.strftime('%H:%M')} – {fin_m.strftime('%H:%M')}", "Descanso"
+            )
+
+    sobrante = sum(h.minutos for h in huecos if not h.es_descanso)
+    if sobrante:
+        st.caption(
+            f"Nota: tu horario deja {sobrante} minutos que no alcanzan para otro corte "
+            f"de {duracion}. Se suman al descanso para que no queden sueltos a mitad "
+            "del día."
         )
 
 

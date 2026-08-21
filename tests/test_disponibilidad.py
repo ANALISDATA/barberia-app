@@ -9,7 +9,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.disponibilidad import horarios_disponibles, proximo_espacio  # noqa: E402
+from app.disponibilidad import (  # noqa: E402
+    analizar_jornada,
+    descansos_efectivos,
+    horarios_disponibles,
+    proximo_espacio,
+)
 
 LUNES = date(2026, 8, 24)  # lunes real, para pruebas con dia de la semana fijo
 DOMINGO = date(2026, 8, 23)
@@ -144,6 +149,43 @@ def test_las_horas_salen_en_orden_sin_solaparse_y_dentro_de_la_jornada():
     for f in libres:
         assert time(7, 0) <= f.inicio and f.fin <= time(20, 0)
         assert not (f.inicio < time(14, 0) and time(12, 0) < f.fin), "invade el descanso"
+
+
+def test_las_citas_van_pegadas_una_detras_de_otra():
+    """Regla del negocio: entre corte y corte no puede quedar tiempo suelto. El único
+    rato muerto permitido es el descanso."""
+    bloques, huecos = analizar_jornada(LUNES, HORARIO_NORMAL, DESCANSOS, SIN_EXCEPCIONES)
+
+    for anterior, siguiente in zip(bloques, bloques[1:]):
+        pegados = anterior.fin == siguiente.inicio
+        cae_el_descanso = anterior.fin <= time(12, 0) and siguiente.inicio >= time(14, 0)
+        assert pegados or cae_el_descanso, (
+            f"hueco suelto entre {anterior.fin} y {siguiente.inicio}"
+        )
+
+    # Todo el tiempo muerto del día tiene que quedar junto al descanso, nunca aislado.
+    for hueco in huecos:
+        assert hueco.inicio >= time(11, 0) and hueco.fin <= time(14, 0)
+
+
+def test_el_sobrante_de_la_manana_se_pega_al_descanso():
+    """7:00-12:00 son 300 minutos: caben 6 cortes (270) y sobran 30 que no alcanzan
+    para otro. Esos 30 minutos no pueden quedar flotando en mitad de la agenda: el
+    descanso efectivo arranca a las 11:30, no a las 12:00."""
+    muertos = descansos_efectivos(LUNES, HORARIO_NORMAL, DESCANSOS, SIN_EXCEPCIONES)
+    assert muertos == [(time(11, 30), time(14, 0))]
+
+
+def test_un_horario_que_calza_exacto_no_deja_sobrante():
+    """Si la mañana durara 270 minutos (7:00-11:30), los 6 cortes la llenan justa y el
+    descanso queda tal cual se configuró."""
+    horario = {0: (time(7, 0), time(20, 0))}
+    descansos = {0: [(time(11, 30), time(14, 0))]}
+    muertos = descansos_efectivos(LUNES, horario, descansos, SIN_EXCEPCIONES)
+    assert muertos == [(time(11, 30), time(14, 0))]
+
+    _, huecos = analizar_jornada(LUNES, horario, descansos, SIN_EXCEPCIONES)
+    assert all(h.es_descanso for h in huecos), "no debería sobrar nada"
 
 
 def test_la_duracion_se_puede_cambiar():

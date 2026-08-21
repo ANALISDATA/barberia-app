@@ -168,6 +168,115 @@ def horarios_disponibles(
     return libres
 
 
+@dataclass(frozen=True)
+class Hueco:
+    """Un rato de la jornada que no se puede vender."""
+
+    inicio: time
+    fin: time
+    minutos: int
+    es_descanso: bool  # True = descanso configurado; False = sobrante sin usar
+
+
+def analizar_jornada(
+    fecha: date,
+    horario_semanal: dict[int, tuple[time, time] | None],
+    descansos_por_dia: dict[int, list[tuple[time, time]]],
+    excepciones: dict[date, dict],
+    duracion: int = DURACION_MINUTOS,
+) -> tuple[list[Franja], list[Hueco]]:
+    """Radiografía del día completo: todos los bloques vendibles y todos los huecos.
+
+    Sirve para responder "¿por qué me queda tiempo muerto?" sin adivinar. Un hueco con
+    `es_descanso=False` es tiempo que se pierde por pura aritmética: si la jornada de
+    la mañana dura 300 minutos y cada corte son 45, caben 6 cortes (270) y sobran 30
+    minutos que no alcanzan para otro. Esos sobrantes se pegan al descanso de al lado
+    (ver `descansos_efectivos`) para que no queden flotando en mitad de la agenda.
+    """
+    horario = resolver_horario_del_dia(fecha, horario_semanal, descansos_por_dia, excepciones)
+    if horario.cerrado or horario.apertura is None or horario.cierre is None:
+        return [], []
+
+    bloques = _generar_bloques(horario.apertura, horario.cierre, horario.descansos, duracion)
+    huecos: list[Hueco] = []
+    hoy = date.today()
+
+    def minutos_entre(a: time, b: time) -> int:
+        return int(
+            (datetime.combine(hoy, b) - datetime.combine(hoy, a)).total_seconds() // 60
+        )
+
+    descansos = sorted(horario.descansos)
+    cursor = horario.apertura
+    for bloque in bloques:
+        if bloque.inicio > cursor:
+            # Todo lo que hay entre el fin del bloque anterior y el inicio de este es
+            # hueco. Puede ser descanso, sobrante, o los dos pegados.
+            for inicio_h, fin_h in _partir_hueco(cursor, bloque.inicio, descansos):
+                es_descanso = any(
+                    inicio_h >= d0 and fin_h <= d1 for d0, d1 in descansos
+                )
+                huecos.append(
+                    Hueco(inicio_h, fin_h, minutos_entre(inicio_h, fin_h), es_descanso)
+                )
+        cursor = bloque.fin
+
+    if cursor < horario.cierre:
+        for inicio_h, fin_h in _partir_hueco(cursor, horario.cierre, descansos):
+            es_descanso = any(inicio_h >= d0 and fin_h <= d1 for d0, d1 in descansos)
+            huecos.append(
+                Hueco(inicio_h, fin_h, minutos_entre(inicio_h, fin_h), es_descanso)
+            )
+
+    return bloques, huecos
+
+
+def _partir_hueco(
+    inicio: time, fin: time, descansos: list[tuple[time, time]]
+) -> list[tuple[time, time]]:
+    """Corta un hueco en los pedazos que son descanso y los que no, para poder
+    distinguirlos. Sin esto, el rato de 11:30 a 14:00 se veria como un solo bloque y no
+    se sabria que 30 minutos de ahi son sobrante y 120 son el almuerzo."""
+    cortes = {inicio, fin}
+    for d0, d1 in descansos:
+        if inicio < d0 < fin:
+            cortes.add(d0)
+        if inicio < d1 < fin:
+            cortes.add(d1)
+    ordenados = sorted(cortes)
+    return list(zip(ordenados, ordenados[1:]))
+
+
+def descansos_efectivos(
+    fecha: date,
+    horario_semanal: dict[int, tuple[time, time] | None],
+    descansos_por_dia: dict[int, list[tuple[time, time]]],
+    excepciones: dict[date, dict],
+    duracion: int = DURACION_MINUTOS,
+) -> list[tuple[time, time]]:
+    """Los descansos tal como se ven de verdad en la agenda, con el sobrante pegado.
+
+    Regla del negocio: el único tiempo muerto del día debe ser el descanso. Si la
+    mañana deja 30 minutos que no alcanzan para un corte, esos 30 minutos no quedan
+    "volando" sueltos: pasan a ser parte del descanso. Nada se pierde (en 30 minutos no
+    cabe un corte de 45 igual), pero la agenda queda limpia y se lee de corrido.
+    """
+    _, huecos = analizar_jornada(
+        fecha, horario_semanal, descansos_por_dia, excepciones, duracion
+    )
+    if not huecos:
+        return []
+
+    # Se juntan los huecos que se tocan; el resultado son los ratos muertos reales.
+    fusionados: list[list[time]] = []
+    for h in huecos:
+        if fusionados and fusionados[-1][1] == h.inicio:
+            fusionados[-1][1] = h.fin
+        else:
+            fusionados.append([h.inicio, h.fin])
+    return [(a, b) for a, b in fusionados]
+
+
 def proximo_espacio(
     fecha: date,
     horario_semanal: dict[int, tuple[time, time] | None],

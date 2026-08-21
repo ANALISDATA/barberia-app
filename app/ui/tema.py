@@ -448,6 +448,29 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 .fila-cita .quien {{ flex: 1; color: {BLANCO_CALIDO}; font-weight: 500; }}
 .fila-cita .que {{ color: {GRIS_CALIDO}; font-size: 13.5px; }}
 
+/* Fila de descanso en la vista de la jornada */
+.fila-descanso {{
+    display: flex; align-items: center; gap: 14px;
+    background: repeating-linear-gradient(135deg,
+        rgba(255,255,255,0.022) 0 8px, transparent 8px 16px), {CARBON};
+    border: 1px dashed {LINEA};
+    border-radius: 3px;
+    padding: 11px 18px;
+    margin-bottom: 9px;
+}}
+.fila-descanso .hora {{
+    font-family: 'Oswald', sans-serif;
+    font-size: 14px; color: {GRIS_TENUE}; min-width: 108px;
+}}
+.fila-descanso .que {{
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    font-size: 12px; color: {GRIS_CALIDO};
+}}
+.fila-libre {{ border-left-color: {LINEA} !important; }}
+.fila-libre .hora {{ color: {GRIS_CALIDO} !important; }}
+.fila-libre .quien {{ color: {GRIS_TENUE} !important; font-weight: 400 !important; }}
+
 .pildora {{
     display: inline-block;
     padding: 3px 11px;
@@ -828,11 +851,20 @@ def saludo(texto: str, fecha_texto: str):
     )
 
 
-def fila_cita(hora: str, quien: str, que: str, estado_html: str = ""):
+def fila_cita(hora: str, quien: str, que: str, estado_html: str = "", libre: bool = False):
+    clase = "fila-cita fila-libre" if libre else "fila-cita"
     st.markdown(
-        f'<div class="fila-cita"><span class="hora">{hora}</span>'
+        f'<div class="{clase}"><span class="hora">{hora}</span>'
         f'<span class="quien">{quien}<br><span class="que">{que}</span></span>'
         f"{estado_html}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def fila_descanso(rango: str, etiqueta: str = "Descanso"):
+    st.markdown(
+        f'<div class="fila-descanso"><span class="hora">{rango}</span>'
+        f'<span class="que">{etiqueta}</span></div>',
         unsafe_allow_html=True,
     )
 
