@@ -1,0 +1,12 @@
+# Librerías que necesita la app. El instalador (1 - Instalar.bat) las descarga solas.
+#
+# streamlit va con version FIJA: el otro proyecto (EXTRACCION OP) se rompio en produccion
+# cuando una libreria de la que depende Streamlit publico una version incompatible durante
+# un reinicio automatico del servidor. Con la version fija, un reinicio nunca cambia nada
+# sin que alguien lo decida a proposito.
+streamlit==1.60.0
+
+supabase>=2.9,<3        # base de datos compartida (citas, clientes, horarios)
+pandas>=2.2,<4           # tablas del panel (citas, clientes, estadisticas)
+python-dateutil>=2.9,<3  # calculo de horarios disponibles
+altair>=5,<7              # graficas del dashboard (cortes por dia)
