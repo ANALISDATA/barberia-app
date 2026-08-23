@@ -191,4 +191,7 @@ def url_whatsapp(cliente: ClienteDormido, texto: str) -> str:
     if not solo_digitos:
         return ""
     numero = solo_digitos if solo_digitos.startswith("57") else f"57{solo_digitos}"
-    return f"https://wa.me/{numero}?text={quote(texto)}"
+    # api.whatsapp.com y NO wa.me: comprobado con el usuario en su celular, wa.me
+    # entrega los emojis rotos (llegan como "?") mientras los acentos pasan bien.
+    # api.whatsapp.com los respeta. Las dos son direcciones oficiales de WhatsApp.
+    return f"https://api.whatsapp.com/send?phone={numero}&text={quote(texto)}"

@@ -101,16 +101,14 @@ def render():
                 recordatorios.marcar_escrito(c.cliente_id, hoy)
                 st.rerun()
 
-        # El mensaje también va en un bloque copiable. WhatsApp de computador daña los
-        # emojis que viajan dentro de un enlace (comprobado: los acentos llegan bien y
-        # los emojis salen como "?"), y eso pasa al abrir el enlace, no al generarlo,
-        # así que no se puede arreglar desde aquí. Copiando y pegando no hay enlace de
-        # por medio y los emojis llegan intactos.
-        with st.expander("Copiar el mensaje (si los emojis se ven mal)"):
+        # El bloque copiable se queda como red de seguridad. Los emojis ya llegan bien
+        # por el enlace (se usa api.whatsapp.com, ver `recordatorios.url_whatsapp`),
+        # pero si algún día una versión de WhatsApp los vuelve a dañar, copiar y pegar
+        # no pasa por ningún enlace y siempre funciona.
+        with st.expander("Copiar el mensaje (por si acaso)"):
             st.code(texto, language=None)
             st.caption(
-                "Toca el ícono de copiar de la esquina, abre el chat y pégalo. "
-                "Así los emojis llegan siempre bien."
+                "Toca el ícono de copiar de la esquina, abre el chat y pégalo."
             )
 
     st.caption(

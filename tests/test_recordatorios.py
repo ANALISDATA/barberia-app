@@ -143,7 +143,16 @@ def test_el_mensaje_saluda_por_el_nombre_y_lleva_el_enlace():
 def test_el_enlace_de_whatsapp_lleva_indicativo_de_colombia():
     c = recordatorios.ClienteDormido("1", "Ana", "3145900531", HOY, 1, "sin_barba", None)
     url = recordatorios.url_whatsapp(c, "hola")
-    assert url.startswith("https://wa.me/573145900531?text=")
+    assert url.startswith("https://api.whatsapp.com/send?phone=573145900531&text=")
+
+
+def test_el_enlace_no_usa_wa_me_porque_daña_los_emojis():
+    """Comprobado en el celular del barbero: por `wa.me` los emojis llegan como "?",
+    por `api.whatsapp.com` llegan bien. Si alguien lo vuelve a cambiar, esto lo avisa."""
+    c = recordatorios.ClienteDormido("1", "Ana", "3145900531", HOY, 1, "sin_barba", None)
+    url = recordatorios.url_whatsapp(c, "Hola ✂️ 💈 📅")
+    assert "wa.me" not in url
+    assert "api.whatsapp.com" in url
 
 
 def test_sin_telefono_no_hay_enlace():

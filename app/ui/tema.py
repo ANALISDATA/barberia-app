@@ -1004,7 +1004,10 @@ def url_whatsapp(telefono: str, producto: str = "") -> str:
         texto = f"¡Hola! Me interesa el producto: {producto}. ¿Está disponible?"
     else:
         texto = "¡Hola! Quiero preguntar por los productos."
-    return f"https://wa.me/{numero}?text={quote(texto)}"
+    # api.whatsapp.com y NO wa.me: comprobado con el usuario en su celular, wa.me
+    # entrega los emojis rotos (llegan como "?") mientras los acentos pasan bien.
+    # api.whatsapp.com los respeta. Las dos son direcciones oficiales de WhatsApp.
+    return f"https://api.whatsapp.com/send?phone={numero}&text={quote(texto)}"
 
 
 def pasos(etiquetas: list[str], actual: int):
