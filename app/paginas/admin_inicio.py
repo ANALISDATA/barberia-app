@@ -11,13 +11,8 @@ from datetime import datetime, time, timedelta
 
 import streamlit as st
 
-from app import catalogo, db, margen
-from app.disponibilidad import (
-    analizar_jornada,
-    descansos_efectivos,
-    horarios_disponibles,
-    proximo_espacio,
-)
+from app import catalogo, db, horarios, margen
+from app.disponibilidad import analizar_jornada, descansos_efectivos
 from app.ui import menu, tema
 from config import NOMBRES_DIA, ZONA_HORARIA, fecha_larga
 
@@ -66,11 +61,11 @@ def render():
         for c in citas_hoy
         if c["status"] != "cancelada"
     ]
-    libres = horarios_disponibles(
+    libres = horarios.libres(
         hoy, horario_semanal, descansos, excepciones, ocupadas,
         ahora=ahora, duracion=duracion, tolerancia=margen.minutos(),
     )
-    siguiente = proximo_espacio(
+    siguiente = horarios.proximo(
         hoy, horario_semanal, descansos, excepciones, ocupadas,
         ahora=ahora, duracion=duracion, tolerancia=margen.minutos(),
     )
@@ -150,7 +145,7 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
     ]
     # El filtro por hora actual sólo aplica a hoy: en un día futuro todas las horas
     # siguen siendo válidas por más tarde que sea ahora mismo.
-    libres = horarios_disponibles(
+    libres = horarios.libres(
         fecha, horario_semanal, descansos, excepciones, ocupadas,
         ahora=ahora if fecha == hoy else None, duracion=duracion,
         tolerancia=margen.minutos(),

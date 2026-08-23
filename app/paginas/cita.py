@@ -12,8 +12,7 @@ from datetime import date, datetime, time, timedelta
 
 import streamlit as st
 
-from app import catalogo, db, margen
-from app.disponibilidad import horarios_disponibles
+from app import catalogo, db, horarios, margen
 from app.ui import tema, volver
 from config import ZONA_HORARIA, fecha_larga
 
@@ -150,7 +149,7 @@ def render():
     citas_activas = db.obtener_citas_activas(fecha)
     ahora = datetime.now(ZONA_HORARIA)
 
-    libres = horarios_disponibles(
+    libres = horarios.libres(
         fecha, horario_semanal, descansos, excepciones, citas_activas,
         ahora=ahora, duracion=duracion, tolerancia=margen.minutos(),
     )

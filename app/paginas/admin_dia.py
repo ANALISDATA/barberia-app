@@ -8,8 +8,8 @@ from datetime import datetime, time
 
 import streamlit as st
 
-from app import catalogo, db, margen
-from app.disponibilidad import analizar_jornada, horarios_disponibles
+from app import catalogo, db, horarios, margen
+from app.disponibilidad import analizar_jornada
 from app.indicadores import resumir
 from app.ui import graficos, menu, tema
 from config import ZONA_HORARIA, fecha_larga
@@ -49,7 +49,7 @@ def render():
         for c in citas
         if c["status"] != "cancelada"
     ]
-    libres = horarios_disponibles(
+    libres = horarios.libres(
         hoy, horario, descansos, excepciones, ocupadas, ahora=ahora,
         duracion=duracion, tolerancia=margen.minutos(),
     )
