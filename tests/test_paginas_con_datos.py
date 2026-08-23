@@ -301,3 +301,51 @@ def test_no_deja_confirmar_sin_nombre_ni_telefono(dia_normal, monkeypatch):
 
     assert not at.exception
     assert at.error, "No avisó de que faltaban los datos."
+
+
+def test_al_guardar_el_consolidado_se_ve_el_aviso(dia_normal, monkeypatch):
+    """El fallo del 23/08/2026: el aviso de "guardado" se escribía y `st.rerun()` lo
+    borraba en el mismo instante. El barbero pulsaba Guardar, no veía nada y creía que
+    el botón estaba roto -- cuando en realidad ya había guardado.
+    """
+    from app import db
+
+    guardados = []
+    monkeypatch.setattr(db, "actualizar_precio_cita",
+                        lambda cita_id, precio: guardados.append((cita_id, precio)))
+
+    at = AppTest.from_file("app/paginas/admin_inicio.py", default_timeout=60)
+    at.session_state["admin_autenticado"] = True
+    at.run()
+
+    campos = at.number_input
+    assert campos, "No se pintó el consolidado del día."
+    campos[0].set_value(40000)
+
+    guardar = next(b for b in at.button if "Guardar valores" in (b.label or ""))
+    guardar.click().run()
+
+    assert not at.exception, f"Reventó al guardar: {at.exception}"
+    assert guardados, "Se pulsó Guardar y el precio nuevo nunca llegó a la base de datos."
+    assert guardados[0][1] == 40000
+
+    assert at.success, "Guardó pero no dejó ningún aviso a la vista."
+    assert "Total del día" in at.success[0].value
+
+
+def test_el_aviso_no_se_queda_pegado_en_la_pantalla(dia_normal, monkeypatch):
+    """Se muestra una vez y se borra. Si no, el 'guardado' seguiría ahí media hora
+    después y el barbero no sabría si es de ahora o de hace rato."""
+    from app import db
+
+    monkeypatch.setattr(db, "actualizar_precio_cita", lambda *_a: None)
+
+    at = AppTest.from_file("app/paginas/admin_inicio.py", default_timeout=60)
+    at.session_state["admin_autenticado"] = True
+    at.run()
+    at.number_input[0].set_value(40000)
+    next(b for b in at.button if "Guardar valores" in (b.label or "")).click().run()
+    assert at.success
+
+    at.run()  # el barbero toca cualquier otra cosa: el aviso ya no debe estar
+    assert not at.success, "El aviso de guardado se quedó pegado en la pantalla."

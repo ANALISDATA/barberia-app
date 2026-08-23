@@ -12,7 +12,7 @@ from datetime import datetime, time, timedelta
 import streamlit as st
 
 from app import alertas, catalogo, db, horarios, margen
-from app.ui import menu, tema
+from app.ui import aviso, menu, tema
 from config import NOMBRES_DIA, ZONA_HORARIA, fecha_larga
 
 
@@ -38,6 +38,7 @@ def render():
         return
 
     menu.pintar("panel")
+    aviso.mostrar()
 
     if not db.disponible():
         st.warning(
@@ -341,14 +342,25 @@ def _consolidado_del_dia(reservadas, fecha, nombres):
     if guardar:
         cambiadas = 0
         for cita in atendidas:
-            nuevo = int(nuevos[cita["id"]])
-            if nuevo != int(cita["price_at_booking"]):
-                db.actualizar_precio_cita(cita["id"], nuevo)
+            valor = int(nuevos[cita["id"]])
+            if valor != int(cita["price_at_booking"]):
+                db.actualizar_precio_cita(cita["id"], valor)
                 cambiadas += 1
-        st.success(
-            f"{cambiadas} cita(s) actualizada(s)." if cambiadas else "No hubo cambios."
-        )
-        st.rerun()
+
+        # El total va dentro del mensaje porque es justo lo que el barbero está
+        # cuadrando: así ve la cifra del día sin tener que volver a sumar.
+        if cambiadas == 1:
+            aviso.guardado(f"Listo, se guardó 1 valor. Total del día: {_pesos(total)}")
+        elif cambiadas:
+            aviso.guardado(
+                f"Listo, se guardaron {cambiadas} valores. "
+                f"Total del día: {_pesos(total)}"
+            )
+        else:
+            aviso.guardado(
+                "No cambiaste ningún valor, así que quedó igual. "
+                f"Total del día: {_pesos(total)}"
+            )
 
 
 def _tabla_disponibles(libres, fecha, hoy, duracion):
@@ -441,8 +453,7 @@ def _formulario_en_linea(fecha, hora, duracion, clave):
         return
 
     st.session_state.pop("agendando_en", None)
-    st.success(f"Cita creada a las {hora.strftime('%H:%M')} para {nombre.strip()}.")
-    st.rerun()
+    aviso.guardado(f"Cita creada a las {hora.strftime('%H:%M')} para {nombre.strip()}.")
 
 
 render()

@@ -13,7 +13,7 @@ from datetime import date, datetime, time, timedelta
 import streamlit as st
 
 from app import catalogo, db, horarios, margen
-from app.ui import tema, volver
+from app.ui import aviso, tema, volver
 from config import ZONA_HORARIA, fecha_larga
 
 PASOS = ["Día", "Servicio", "Hora", "Datos"]
@@ -97,6 +97,7 @@ def render():
         frase="Elige el día, el servicio y la hora. Toma menos de un minuto.",
     )
     volver.encima_del_hero()
+    aviso.mostrar()
 
     hoy = datetime.now(ZONA_HORARIA).date()
 
@@ -217,12 +218,10 @@ def render():
             precio=precio,
         )
     except db.HorarioYaReservado:
-        st.error(
-            "Lo sentimos, este horario acaba de ser reservado. "
-            "Por favor selecciona otro horario."
-        )
         st.session_state["reserva_hora"] = None
-        st.rerun()
+        aviso.problema(
+            "Alguien acabó de tomar esa hora. Elige otra, por favor."
+        )
         return
 
     st.session_state["reserva_confirmada"] = cita

@@ -89,6 +89,20 @@ que tiene que reiniciar la app** desde Streamlit Cloud después de publicar.
 Y siempre: **después de CADA push, correr `Comprobar_App_En_Linea.py`.** Que las pruebas
 locales pasen no dice nada sobre si la app está arriba. Esta app tiene que estar 24/7.
 
+## Trampa: `st.success()` justo antes de `st.rerun()` no se ve NUNCA
+
+`st.rerun()` borra la pantalla y la repinta de inmediato, así que el aviso desaparece
+en el mismo instante en que se escribe. **Estaba así en los 13 sitios donde el panel
+guardaba algo**: guardaba bien, pero parecía que el botón no hacía nada (reportado por
+el usuario el 23/08/2026 en el consolidado del día).
+
+Y el `st.rerun()` hace falta: sin él la página seguiría mostrando los valores viejos.
+
+Se usa `app/ui/aviso.py`: deja el mensaje en `session_state`, repinta, y `aviso.mostrar()`
+lo pinta al principio de la pintada nueva y lo borra. **Nunca volver a escribir
+`st.success(...)` seguido de `st.rerun()`** -- usar `aviso.guardado(...)`. Si se agrega
+una página que guarde algo, ponerle `aviso.mostrar()` arriba.
+
 ## Trampa: probar sólo "sin datos" deja media app sin probar
 
 **Esto tumbó la agenda del panel el 23/08/2026** con un `NameError`: dos funciones

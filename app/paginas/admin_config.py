@@ -11,7 +11,7 @@ from datetime import time
 import streamlit as st
 
 from app import alertas, catalogo, db, margen
-from app.ui import menu, tema
+from app.ui import aviso, menu, tema
 from config import NOMBRES_DIA
 
 # Duraciones ofrecidas. Se listan en vez de dejar un campo libre para que no se cuelen
@@ -42,6 +42,7 @@ def render():
         return
 
     menu.pintar("configuracion")
+    aviso.mostrar()
     tema.saludo("Configuración", "Ajusta tu barbería a tu medida")
 
     _bloque_servicios()
@@ -97,8 +98,7 @@ def _bloque_servicios():
                     )
                     st.caption(f"Detalle técnico: {err}")
                 else:
-                    st.success(f"Servicio «{nombre.strip()}» creado.")
-                    st.rerun()
+                    aviso.guardado(f"Servicio «{nombre.strip()}» creado.")
 
 
 def _control_tolerancia():
@@ -125,8 +125,7 @@ def _control_tolerancia():
             )
             st.caption(f"Detalle técnico: {err}")
         else:
-            st.success("Margen guardado.")
-            st.rerun()
+            aviso.guardado("Margen guardado.")
 
 
 def _editor_servicio(s):
@@ -149,8 +148,7 @@ def _editor_servicio(s):
             "name": nombre.strip(), "price": int(precio),
             "duration_minutes": int(duracion),
         })
-        st.success("Servicio actualizado.")
-        st.rerun()
+        aviso.guardado("Servicio actualizado.")
 
     if s["active"]:
         st.caption(
@@ -185,8 +183,7 @@ def _bloque_alertas():
     if nuevo != encendido:
         if st.button("Guardar", type="primary", width="stretch", key="guardar_sonido"):
             alertas.guardar_sonido(nuevo)
-            st.success("Listo.")
-            st.rerun()
+            aviso.guardado("Listo.")
 
     if st.button("Escuchar cómo suena", width="stretch"):
         alertas.sonar()
@@ -211,8 +208,7 @@ def _bloque_productos():
         if st.button("Pasar esos 6 productos aquí para poder editarlos",
                      type="primary", width="stretch"):
             cuantos = _importar_productos_iniciales()
-            st.success(f"{cuantos} producto(s) importados. Ya puedes editarlos.")
-            st.rerun()
+            aviso.guardado(f"{cuantos} producto(s) importados. Ya puedes editarlos.")
 
     for prod in lista:
         with st.expander(f'{prod["nombre"]} — {_pesos(prod["precio"])}'):
@@ -233,8 +229,7 @@ def _bloque_productos():
             else:
                 imagen = catalogo.preparar_imagen(foto) if foto else None
                 catalogo.crear_producto(nombre, int(precio), descripcion, imagen)
-                st.success(f"Producto «{nombre.strip()}» creado.")
-                st.rerun()
+                aviso.guardado(f"Producto «{nombre.strip()}» creado.")
 
 
 def _importar_productos_iniciales() -> int:
@@ -280,8 +275,7 @@ def _editor_producto(prod):
         if foto:
             datos["imagen_base64"] = catalogo.preparar_imagen(foto)
         catalogo.actualizar_producto(prod["id"], datos)
-        st.success("Producto actualizado.")
-        st.rerun()
+        aviso.guardado("Producto actualizado.")
 
     if st.button("Borrar este producto", key=f"del_{prod['id']}", width="stretch"):
         catalogo.borrar_producto(prod["id"])
@@ -373,8 +367,7 @@ def _editor_dia(dia, abierto, inicio, fin, lista_descansos):
         db.guardar_horario_dia(dia, nuevo_inicio, nuevo_fin, activo)
         db.guardar_descansos_dia(dia, nuevos_descansos)
         st.session_state.pop(clave_n, None)
-        st.success(f"{NOMBRES_DIA[dia]} actualizado.")
-        st.rerun()
+        aviso.guardado(f"{NOMBRES_DIA[dia]} actualizado.")
 
 
 def _bloque_negocio():
@@ -408,8 +401,7 @@ def _bloque_negocio():
             "arrive_minutes_before": int(llegar),
             "cancellation_hours": int(cancelar),
         })
-        st.success("Datos actualizados.")
-        st.rerun()
+        aviso.guardado("Datos actualizados.")
 
 
 render()

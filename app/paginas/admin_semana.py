@@ -15,7 +15,7 @@ import streamlit as st
 
 from app import catalogo, db, horarios, margen
 from app.indicadores import mejor_dia, por_dia, resumir, semana_de
-from app.ui import graficos, menu, tema
+from app.ui import aviso, graficos, menu, tema
 from config import NOMBRES_DIA, ZONA_HORARIA
 
 
@@ -36,6 +36,7 @@ def render():
         return
 
     menu.pintar("semana")
+    aviso.mostrar()
 
     if not db.disponible():
         st.warning("No hay conexión con Supabase.")
@@ -171,7 +172,7 @@ def _cierre(lunes, domingo, r, hoy):
         return
 
     if db.semana_esta_cerrada(lunes):
-        st.success("Esta semana ya está cerrada.")
+        aviso.guardado("Esta semana ya está cerrada.")
         _historial_de_cierres()
         return
 
@@ -216,7 +217,6 @@ def _cierre(lunes, domingo, r, hoy):
             st.caption(f"Detalle técnico: {err}")
             return
         st.success(f"Semana {_rango(lunes, domingo)} cerrada.")
-        st.rerun()
 
     _historial_de_cierres()
 
