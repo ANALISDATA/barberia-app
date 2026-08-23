@@ -11,7 +11,7 @@ from datetime import datetime, time, timedelta
 
 import streamlit as st
 
-from app import catalogo, db, horarios, margen
+from app import alertas, catalogo, db, horarios, margen
 from app.disponibilidad import analizar_jornada
 from app.ui import menu, tema
 from config import NOMBRES_DIA, ZONA_HORARIA, fecha_larga
@@ -76,6 +76,8 @@ def render():
     )
     tema.saludo(f"{saludo} 👋", fecha_larga(hoy))
 
+    _vigilante_de_espacios(hoy)
+
     # Esta página es SÓLO la agenda. Los indicadores viven en sus propias páginas
     # (Hoy, Semana, Historial): en un celular, tenerlo todo junto obliga a un scroll
     # larguísimo para encontrar un dato.
@@ -92,6 +94,53 @@ def render():
 # ---------------------------------------------------------------------------
 # Bloques del panel
 # ---------------------------------------------------------------------------
+
+@st.fragment(run_every=30)
+def _vigilante_de_espacios(hoy):
+    """Revisa cada 30 segundos si se liberó un espacio y avisa.
+
+    Va en un `st.fragment` para que sólo se refresque este trozo: si se recargara la
+    página entera cada medio minuto, se perdería lo que el barbero estuviera escribiendo
+    en un formulario a medio llenar.
+
+    Cada 30 segundos porque es lo bastante rápido para enterarse de una cancelación
+    mientras se atiende a alguien, sin castigar la batería del celular.
+    """
+    if not db.disponible():
+        return
+
+    liberados = alertas.revisar(db.obtener_citas_del_dia(hoy))
+    frescos = alertas.nuevos(liberados)
+
+    if not alertas.sonido_activado():
+        # Sin este toque el navegador no deja sonar nada. Se muestra sólo mientras
+        # haga falta, para no estorbar el resto del día.
+        alertas.boton_activar_sonido()
+
+    if not frescos:
+        return
+
+    if alertas.sonido_activado() and alertas.sonido_encendido():
+        alertas.sonar()
+
+    for espacio in frescos:
+        st.markdown(
+            f'<div class="tarjeta-dorada" style="text-align:center;">'
+            f'<div class="etiqueta">🔔 Se liberó un espacio</div>'
+            f'<div class="valor-grande" style="font-size:30px;">{espacio.rango()}</div>'
+            f'<div class="etiqueta" style="margin-top:6px;">'
+            f'Se cayó la cita de {espacio.quien}</div>'
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            f"＋ Agendar a alguien a las {espacio.inicio.strftime('%H:%M')}",
+            key=f"alerta_{espacio.clave}", type="primary", width="stretch",
+        ):
+            st.session_state["vista_agenda"] = "disponibles"
+            st.session_state["agendando_en"] = f"{hoy}_{espacio.inicio}"
+            st.rerun()
+
 
 def _bloque_proximo_espacio(siguiente, libres, duracion):
     tema.seccion("Próximo espacio", eyebrow="Disponible ahora", compacta=True)

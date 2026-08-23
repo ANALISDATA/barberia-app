@@ -10,7 +10,7 @@ from datetime import time
 
 import streamlit as st
 
-from app import catalogo, db, margen
+from app import alertas, catalogo, db, margen
 from app.ui import menu, tema
 from config import NOMBRES_DIA
 
@@ -45,6 +45,7 @@ def render():
     tema.saludo("Configuración", "Ajusta tu barbería a tu medida")
 
     _bloque_servicios()
+    _bloque_alertas()
     _bloque_productos()
     _bloque_horario()
     _bloque_negocio()
@@ -167,6 +168,28 @@ def _editor_servicio(s):
                      type="primary", width="stretch"):
             catalogo.activar_servicio(s["id"])
             st.rerun()
+
+
+def _bloque_alertas():
+    tema.seccion("Alertas", eyebrow="Cuando se libera un hueco", compacta=True)
+
+    encendido = alertas.sonido_encendido()
+    nuevo = st.toggle("Sonar cuando se libere un espacio", value=encendido)
+    st.caption(
+        "Si un cliente cancela o no llega, el panel te avisa con una tarjeta y un "
+        "sonido corto. La primera vez que abras el panel en el día hay que tocar "
+        "**Activar el sonido**: los navegadores no dejan sonar nada hasta que tocas "
+        "algo en la pantalla, no es algo que la app pueda saltarse."
+    )
+
+    if nuevo != encendido:
+        if st.button("Guardar", type="primary", width="stretch", key="guardar_sonido"):
+            alertas.guardar_sonido(nuevo)
+            st.success("Listo.")
+            st.rerun()
+
+    if st.button("Escuchar cómo suena", width="stretch"):
+        alertas.sonar()
 
 
 def _bloque_productos():
