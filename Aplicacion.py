@@ -7,8 +7,11 @@ import streamlit as st
 
 from app.navegacion import (
     admin_config,
+    admin_dia,
+    admin_historial,
     admin_inicio,
     admin_login,
+    admin_semana,
     cita,
     inicio,
     productos,
@@ -27,13 +30,12 @@ st.set_page_config(page_title="Barbería", page_icon="💈", layout="centered")
 # eso la navegacion de arriba se oculta del todo (position="hidden") y no se pone
 # ningun st.page_link visible para el publico. El administrador entra directo a
 # /admin (se lo guarda en favoritos), no navegando desde la pagina de reservas.
-# No hay menu lateral a proposito. Lo hubo, con "Inicio" y "Cerrar sesion", pero la
-# flecha que lo abre vive dentro de la barra superior de Streamlit, que se oculta para
-# que no tape el logo -- y quedaba imposible de pulsar (comprobado en el navegador).
-# Ademas su enlace "Inicio" apuntaba a la pagina donde ya estabas. "Cerrar sesion"
-# ahora esta al final del panel, a la vista.
+# El menu del panel NO usa el sidebar de Streamlit: la flecha que lo abre vive dentro
+# de la barra superior, que se oculta para que no tape el logo, y quedaba imposible de
+# pulsar. Se dibuja con botones propios en cada pagina (`app/ui/menu.py`).
 if st.session_state.get("admin_autenticado"):
-    paginas = [inicio, cita, productos, admin_inicio, admin_config]
+    paginas = [inicio, cita, productos, admin_inicio, admin_dia,
+               admin_semana, admin_historial, admin_config]
 else:
     paginas = [inicio, cita, productos, admin_login]
 

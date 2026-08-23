@@ -1,15 +1,14 @@
-"""Panel del administrador: lo que necesito para trabajar hoy, en el orden que lo necesito.
+"""AGENDA del administrador: a quién atiendo y qué huecos me quedan.
 
-Orden deliberado (de arriba a abajo): próximo espacio libre -> próximas citas -> cómo va
-el día -> semana -> mes. Lo operativo primero, las estadísticas después: al abrir la app
-en el celular entre corte y corte, lo urgente tiene que estar sin hacer scroll.
+Esta página es sólo operativa. Los indicadores viven en sus propias páginas (Hoy,
+Semana, Historial) porque en un celular tenerlo todo junto obliga a un scroll larguísimo
+para encontrar un dato, y casi nunca se necesita la agenda y las estadísticas a la vez.
 
 Regla que se repite en todo el archivo: los cortes realizados y los ingresos SÓLO cuentan
 citas en estado 'atendida'. Confirmada, cancelada y no_asistio nunca suman.
 """
 from datetime import datetime, time, timedelta
 
-import pandas as pd
 import streamlit as st
 
 from app import db
@@ -19,7 +18,7 @@ from app.disponibilidad import (
     horarios_disponibles,
     proximo_espacio,
 )
-from app.ui import graficos, tema
+from app.ui import menu, tema
 from config import NOMBRES_DIA, NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
 
 
@@ -29,10 +28,6 @@ def _pesos(valor: int) -> str:
 
 def _hora_bonita(t) -> str:
     return t.strftime("%I:%M %p").lstrip("0").replace("AM", "a.m.").replace("PM", "p.m.")
-
-
-def _atendidas(citas: list[dict]) -> list[dict]:
-    return [c for c in citas if c["status"] == "atendida"]
 
 
 def render():
@@ -47,6 +42,8 @@ def render():
         st.warning("Necesitas iniciar sesión para ver el panel.")
         st.link_button("Ir a iniciar sesión", "/admin", width="stretch")
         return
+
+    menu.pintar("panel")
 
     if not db.disponible():
         st.warning(
@@ -84,27 +81,13 @@ def render():
     )
     tema.saludo(f"{saludo} 👋", fecha_larga(hoy))
 
+    # Esta página es SÓLO la agenda. Los indicadores viven en sus propias páginas
+    # (Hoy, Semana, Historial): en un celular, tenerlo todo junto obliga a un scroll
+    # larguísimo para encontrar un dato.
     _bloque_proximo_espacio(siguiente, libres, duracion)
     _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion)
-    _bloque_hoy(citas_hoy, libres)
-    _bloque_semana(hoy)
-    _bloque_mes(hoy)
-
-    if st.session_state.get("mostrar_nueva_cita"):
-        _formulario_nueva_cita(hoy, libres, duracion)
 
     st.divider()
-    # Navegación INTERNA (st.switch_page), no un enlace: un enlace recarga la página
-    # entera y Streamlit crea una sesión nueva, así que se perdería el inicio de sesión
-    # y la página de configuración ni siquiera existiría para esa sesión ("Page not
-    # found"). Comprobado en el navegador.
-    if st.button("⚙️  Configuración", width="stretch"):
-        from app.navegacion import admin_config
-
-        st.switch_page(admin_config)
-
-    # Cerrar sesión también aquí, al final de la página: la flecha del menú lateral es
-    # diminuta y nadie la busca. Este botón se ve y se entiende sin explicación.
     if st.button("Cerrar sesión", width="stretch"):
         st.session_state["admin_autenticado"] = False
         st.rerun()
@@ -131,9 +114,13 @@ def _bloque_proximo_espacio(siguiente, libres, duracion):
         f"</div>",
         unsafe_allow_html=True,
     )
+    # Manda a la tabla de disponibles con el formulario de ESA hora ya abierto, en vez
+    # de a un formulario suelto al final de la página.
+    from datetime import date as _date
+
     if st.button("＋ Crear cita en este espacio", type="primary", width="stretch"):
-        st.session_state["nueva_cita_hora_sugerida"] = siguiente.inicio
-        st.session_state["mostrar_nueva_cita"] = True
+        st.session_state["vista_agenda"] = "disponibles"
+        st.session_state["agendando_en"] = f"{_date.today()}_{siguiente.inicio}"
         st.rerun()
 
 
@@ -316,6 +303,12 @@ def _consolidado_del_dia(reservadas, fecha):
 
 
 def _tabla_disponibles(libres, fecha, hoy, duracion):
+    """Las horas libres. Al tocar una se abre AHÍ MISMO el formulario para agendar.
+
+    Antes el formulario salía al final de la página: había que tocar la hora, bajar a
+    buscarlo y comprobar que traía la hora correcta. Ahora se abre justo bajo la hora
+    que se tocó, que es donde uno está mirando.
+    """
     if not libres:
         tema.aviso_vacio(
             "No quedan horas libres ese día."
@@ -324,146 +317,55 @@ def _tabla_disponibles(libres, fecha, hoy, duracion):
         )
         return
 
+    abierta = st.session_state.get("agendando_en")
+
     for franja in libres:
+        clave = f"{fecha}_{franja.inicio}"
         tema.fila_cita(
             franja.inicio.strftime("%H:%M"),
             "Libre",
             f"hasta las {franja.fin.strftime('%H:%M')} · {duracion} minutos",
             libre=True,
         )
-        # Sólo se puede agendar en el día de hoy desde aquí: el formulario rápido está
-        # pensado para el cliente que llega a la barbería en ese momento.
-        if fecha == hoy:
-            if st.button(
-                "＋ Agendar en esta hora", key=f"ag_{franja.inicio}", width="stretch"
-            ):
-                st.session_state["nueva_cita_hora_sugerida"] = franja.inicio
-                st.session_state["mostrar_nueva_cita"] = True
-                st.rerun()
-
-
-def _bloque_hoy(citas_hoy, libres):
-    tema.seccion("Cómo va el día", eyebrow="Hoy", compacta=True)
-
-    atendidas = _atendidas(citas_hoy)
-    confirmadas = [c for c in citas_hoy if c["status"] == "confirmada"]
-    canceladas = [c for c in citas_hoy if c["status"] == "cancelada"]
-    ausentes = [c for c in citas_hoy if c["status"] == "no_asistio"]
-    ingresos = sum(c["price_at_booking"] for c in atendidas)
-
-    with tema.panel("Jornada"):
-        st.altair_chart(graficos.anillo(len(atendidas), len(libres)), width="stretch")
-
-    tema.grid_metricas([
-        ("Ingresos de hoy", _pesos(ingresos), "oro"),
-        ("Confirmadas", str(len(confirmadas)), ""),
-        ("Disponibles", str(len(libres)), ""),
-        ("Canceladas", str(len(canceladas)), "" if canceladas else "apagada"),
-        ("No asistieron", str(len(ausentes)), "" if ausentes else "apagada"),
-    ])
-
-
-def _bloque_semana(hoy):
-    lunes = hoy - timedelta(days=hoy.weekday())
-    domingo = lunes + timedelta(days=6)
-    citas = db.obtener_citas_rango(lunes, domingo)
-    atendidas = _atendidas(citas)
-
-    tema.seccion("Esta semana", eyebrow=f"{lunes.strftime('%d/%m')} — {domingo.strftime('%d/%m')}", compacta=True)
-
-    # Una fila por día de la semana, incluso los días sin cortes: si se omitieran, la
-    # gráfica mentiría (un lunes flojo se vería igual que un lunes cerrado).
-    filas = []
-    for i in range(7):
-        dia = lunes + timedelta(days=i)
-        del_dia = [c for c in atendidas if c["date"] == dia.isoformat()]
-        filas.append({
-            "etiqueta": NOMBRES_DIA[i][:3],
-            "cortes": len(del_dia),
-            "ingresos": sum(c["price_at_booking"] for c in del_dia),
-        })
-    por_dia = pd.DataFrame(filas)
-
-    with tema.panel("Cortes realizados"):
-        st.altair_chart(graficos.barras_cortes(por_dia[["etiqueta", "cortes"]]), width="stretch")
-
-    with tema.panel("Ingresos por día"):
-        st.altair_chart(graficos.area_ingresos(por_dia[["etiqueta", "ingresos"]]), width="stretch")
-
-    tema.grid_metricas([
-        ("Cortes", str(len(atendidas)), "oro"),
-        ("Ingresos", _pesos(sum(c["price_at_booking"] for c in atendidas)), "oro"),
-        ("Citas totales", str(len(citas)), ""),
-        ("Canceladas", str(len([c for c in citas if c["status"] == "cancelada"])), ""),
-        ("No asistieron", str(len([c for c in citas if c["status"] == "no_asistio"])), ""),
-    ])
-
-
-def _bloque_mes(hoy):
-    primero = hoy.replace(day=1)
-    citas = db.obtener_citas_rango(primero, hoy)
-    atendidas = _atendidas(citas)
-
-    sin_barba = len([c for c in atendidas if c["service_type"] == "sin_barba"])
-    con_barba = len([c for c in atendidas if c["service_type"] == "con_barba"])
-    ingresos = sum(c["price_at_booking"] for c in atendidas)
-    dias_corridos = hoy.day
-    promedio = len(atendidas) / dias_corridos if dias_corridos else 0
-
-    tema.seccion("Este mes", eyebrow=f"Del 1 al {hoy.day}", compacta=True)
-
-    with tema.panel("Tipo de corte"):
-        st.altair_chart(graficos.barras_servicio(sin_barba, con_barba), width="stretch")
-
-    tema.grid_metricas([
-        ("Ingresos del mes", _pesos(ingresos), "oro"),
-        ("Cortes", str(len(atendidas)), "oro"),
-        ("Promedio diario", f"{promedio:.1f}", ""),
-        ("Sin barba", str(sin_barba), ""),
-        ("Con barba", str(con_barba), ""),
-    ])
-
-
-def _formulario_nueva_cita(hoy, libres, duracion):
-    tema.seccion("Nueva cita", eyebrow="Cliente presencial", compacta=True)
-
-    if not libres:
-        tema.aviso_vacio("No quedan espacios libres hoy.")
-        if st.button("Cerrar", width="stretch"):
-            st.session_state["mostrar_nueva_cita"] = False
+        if abierta == clave:
+            _formulario_en_linea(fecha, franja.inicio, duracion, clave)
+        elif st.button("＋ Agendar en esta hora", key=f"ag_{clave}", width="stretch"):
+            st.session_state["agendando_en"] = clave
             st.rerun()
-        return
 
+
+def _formulario_en_linea(fecha, hora, duracion, clave):
+    """Formulario corto pegado a la hora elegida: nombre, teléfono y servicio."""
     servicios = {s["type"]: s for s in db.obtener_servicios()}
     negocio = db.obtener_negocio()
 
-    sugerida = st.session_state.get("nueva_cita_hora_sugerida")
-    horas = [f.inicio for f in libres]
-    indice = horas.index(sugerida) if sugerida in horas else 0
-
-    with st.form("form_nueva_cita"):
-        nombre = st.text_input("Nombre del cliente")
-        telefono = st.text_input("Teléfono")
+    with st.form(f"form_rapido_{clave}"):
+        st.markdown(
+            f'<div class="etiqueta">Agendar a las {hora.strftime("%H:%M")}</div>',
+            unsafe_allow_html=True,
+        )
+        nombre = st.text_input("Nombre", key=f"n_{clave}", placeholder="Nombre del cliente")
+        telefono = st.text_input("Teléfono", key=f"t_{clave}", placeholder="Número de contacto")
         tipo = st.radio(
             "Servicio",
             options=list(servicios.keys()),
             format_func=lambda t: NOMBRES_SERVICIO.get(t, t),
             horizontal=True,
+            key=f"s_{clave}",
         )
-        hora = st.selectbox("Hora", options=horas, index=indice, format_func=_hora_bonita)
         col1, col2 = st.columns(2)
-        crear = col1.form_submit_button("Crear cita", type="primary", width="stretch")
+        crear = col1.form_submit_button("Agendar", type="primary", width="stretch")
         cerrar = col2.form_submit_button("Cancelar", width="stretch")
 
     if cerrar:
-        st.session_state["mostrar_nueva_cita"] = False
+        st.session_state.pop("agendando_en", None)
         st.rerun()
 
     if not crear:
         return
 
     if not nombre.strip() or not telefono.strip():
-        st.error("Escribe el nombre y el teléfono del cliente.")
+        st.error("Escribe el nombre y el teléfono.")
         return
 
     servicio = servicios[tipo]
@@ -476,19 +378,20 @@ def _formulario_nueva_cita(hoy, libres, duracion):
         db.crear_cita(
             nombre=nombre.strip(),
             telefono=telefono.strip(),
-            fecha=hoy,
+            fecha=fecha,
             hora_inicio=hora,
-            hora_fin=(datetime.combine(hoy, hora) + timedelta(minutes=duracion)).time(),
+            hora_fin=(datetime.combine(fecha, hora) + timedelta(minutes=duracion)).time(),
             tipo_servicio=tipo,
             service_id=servicio["id"],
             precio=precio,
         )
     except db.HorarioYaReservado:
-        st.error("Ese horario ya se ocupó. Elige otro.")
+        st.error("Ese horario acaba de ocuparse. Elige otro.")
+        st.session_state.pop("agendando_en", None)
         return
 
-    st.session_state["mostrar_nueva_cita"] = False
-    st.success("Cita creada.")
+    st.session_state.pop("agendando_en", None)
+    st.success(f"Cita creada a las {hora.strftime('%H:%M')} para {nombre.strip()}.")
     st.rerun()
 
 

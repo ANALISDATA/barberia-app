@@ -24,6 +24,25 @@ admin_login = st.Page(
 admin_inicio = st.Page(
     "app/paginas/admin_inicio.py", title="Inicio", icon="🏠", url_path="panel",
 )
+admin_dia = st.Page(
+    "app/paginas/admin_dia.py", title="Tablero diario", icon="📊", url_path="dia",
+)
+admin_semana = st.Page(
+    "app/paginas/admin_semana.py", title="Semana", icon="📈", url_path="semana",
+)
+admin_historial = st.Page(
+    "app/paginas/admin_historial.py", title="Historial", icon="🏆", url_path="historial",
+)
 admin_config = st.Page(
     "app/paginas/admin_config.py", title="Configuración", icon="⚙️", url_path="configuracion",
 )
+
+# Menú del panel: se recorre para pintar el navegador lateral, así agregar una página
+# nueva es añadir una línea aquí y nada más.
+MENU_ADMIN = [
+    (admin_inicio, "Agenda", "📅"),
+    (admin_dia, "Hoy", "📊"),
+    (admin_semana, "Semana", "📈"),
+    (admin_historial, "Top", "🏆"),
+    (admin_config, "Ajustes", "⚙️"),
+]

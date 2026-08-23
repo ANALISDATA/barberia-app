@@ -301,6 +301,121 @@ def obtener_citas_rango(desde: date, hasta: date) -> list[dict]:
     return r.data
 
 
+def obtener_citas_con_cliente(desde: date, hasta: date) -> list[dict]:
+    """Como `obtener_citas_rango` pero trayendo también el nombre y teléfono. Se usa en
+    los tableros que hablan de personas (top de clientes, clientes nuevos)."""
+    r = (
+        _cliente()
+        .table(TABLA_CITAS)
+        .select("date, start_time, service_type, price_at_booking, status, customers(name, phone)")
+        .eq("business_id", NEGOCIO_ID)
+        .gte("date", desde.isoformat())
+        .lte("date", hasta.isoformat())
+        .order("date")
+        .execute()
+    )
+    return r.data
+
+
+# ---------------------------------------------------------------------------
+# Cierres de semana
+# ---------------------------------------------------------------------------
+
+TABLA_CIERRES = "cierres_semana"
+
+
+class FaltaTablaCierres(Exception):
+    """Todavía no se ha corrido `supabase/002_cierres_semana.sql`."""
+
+
+def _es_tabla_faltante(err: Exception) -> bool:
+    texto = str(err).lower()
+    return "cierres_semana" in texto and (
+        "could not find the table" in texto or "does not exist" in texto
+    )
+
+
+def hay_tabla_cierres() -> bool:
+    """Si la tabla de cierres existe. Se pregunta antes de usarla para que la página de
+    la semana siga funcionando aunque falte correr el SQL -- sin esto, olvidar ese paso
+    rompía la página entera en vez de avisar."""
+    try:
+        _cliente().table(TABLA_CIERRES).select("id").limit(1).execute()
+        return True
+    except Exception as err:
+        if _es_tabla_faltante(err):
+            return False
+        raise
+
+
+def obtener_cierres(limite: int = 12) -> list[dict]:
+    """Las últimas semanas cerradas, de la más reciente a la más vieja."""
+    try:
+        r = (
+            _cliente()
+            .table(TABLA_CIERRES)
+            .select("*")
+            .eq("business_id", NEGOCIO_ID)
+            .order("semana_inicio", desc=True)
+            .limit(limite)
+            .execute()
+        )
+    except Exception as err:
+        if _es_tabla_faltante(err):
+            return []
+        raise
+    return r.data
+
+
+def semana_esta_cerrada(lunes: date) -> bool:
+    try:
+        r = (
+            _cliente()
+            .table(TABLA_CIERRES)
+            .select("id")
+            .eq("business_id", NEGOCIO_ID)
+            .eq("semana_inicio", lunes.isoformat())
+            .execute()
+        )
+    except Exception as err:
+        if _es_tabla_faltante(err):
+            return False
+        raise
+    return bool(r.data)
+
+
+class SemanaYaCerrada(Exception):
+    """Esa semana ya se había cerrado antes."""
+
+
+def cerrar_semana(lunes: date, domingo: date, numeros: dict) -> dict:
+    """Guarda cómo quedó la semana. `numeros` son los totales ya calculados.
+
+    Se congela la foto en vez de recalcular al consultar: si después se corrige el
+    precio de una cita vieja, un cierre ya guardado no debe moverse -- si no, las
+    cuentas de una semana cerrada cambiarían solas y no habría con qué comparar.
+    """
+    try:
+        r = (
+            _cliente()
+            .table(TABLA_CIERRES)
+            .insert({
+                "business_id": NEGOCIO_ID,
+                "semana_inicio": lunes.isoformat(),
+                "semana_fin": domingo.isoformat(),
+                **numeros,
+            })
+            .execute()
+        )
+        return r.data[0]
+    except Exception as err:
+        # La restricción `unique (business_id, semana_inicio)` de la base de datos es la
+        # que de verdad impide cerrar dos veces la misma semana.
+        if "duplicate" in str(err).lower() or "unique" in str(err).lower():
+            raise SemanaYaCerrada() from err
+        raise
+
+
 def obtener_citas_del_dia(fecha: date) -> list[dict]:
     """Version con todos los datos (cliente, servicio, precio, estado) para el panel."""
     r = (

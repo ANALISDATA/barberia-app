@@ -11,7 +11,7 @@ from datetime import time
 import streamlit as st
 
 from app import db
-from app.ui import tema
+from app.ui import menu, tema
 from config import NOMBRES_DIA, NOMBRES_SERVICIO
 
 # Duraciones ofrecidas. Se listan en vez de dejar un campo libre para que no se cuelen
@@ -37,14 +37,7 @@ def render():
         st.warning("No hay conexión con Supabase.")
         return
 
-    # Arriba y abajo: arriba para volver sin leer toda la página, abajo para cuando ya
-    # se terminó de configurar. Va con st.switch_page y no con un enlace porque un
-    # enlace recarga la página y se pierde la sesión de administrador.
-    if st.button("‹ Volver al panel", key="volver_arriba"):
-        from app.navegacion import admin_inicio
-
-        st.switch_page(admin_inicio)
-
+    menu.pintar("configuracion")
     tema.saludo("Configuración", "Ajusta tu barbería a tu medida")
 
     _bloque_duracion()
@@ -52,12 +45,6 @@ def render():
     _bloque_horario()
     _bloque_negocio()
 
-    st.divider()
-    # Igual que en el panel: navegación interna para no perder la sesión al recargar.
-    if st.button("← Volver al panel", width="stretch"):
-        from app.navegacion import admin_inicio
-
-        st.switch_page(admin_inicio)
     tema.pie_de_pagina(db.obtener_negocio())
 
 

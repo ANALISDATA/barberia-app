@@ -187,6 +187,172 @@ def barras_servicio(sin_barba: int, con_barba: int, alto: int = 96) -> alt.Layer
     return _base(alt.layer(barra, textos), alto)
 
 
+def barras_libres_vs_ocupadas(
+    confirmadas: int, atendidas: int, libres: int, alto: int = 165
+) -> alt.LayerChart:
+    """Cómo va el día de un vistazo: lo hecho, lo que falta y lo que queda libre.
+
+    Se separan "atendidas" de "confirmadas" en vez de juntarlas en una sola barra
+    porque son cosas distintas para el barbero: una ya está cobrada, la otra todavía
+    puede caerse.
+    """
+    datos = pd.DataFrame({
+        "estado": ["Atendidas", "Por atender", "Libres"],
+        "cantidad": [atendidas, confirmadas, libres],
+        "orden": [0, 1, 2],
+    })
+
+    barras = (
+        alt.Chart(datos)
+        .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3,
+                  width=alt.RelativeBandSize(0.5))
+        .encode(
+            x=alt.X("estado:N", sort=None, title=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("cantidad:Q", title=None, axis=alt.Axis(tickMinStep=1)),
+            color=alt.Color(
+                "estado:N",
+                scale=alt.Scale(
+                    domain=["Atendidas", "Por atender", "Libres"],
+                    range=[DORADO_CLARO, DORADO, SUPERFICIE_ALTA],
+                ),
+                legend=None,
+            ),
+            tooltip=[alt.Tooltip("estado:N", title=""), alt.Tooltip("cantidad:Q", title="Citas")],
+        )
+    )
+    cifras = (
+        alt.Chart(datos)
+        .mark_text(font=FUENTE, fontSize=13, fontWeight=600, color=BLANCO_CALIDO, dy=-9)
+        .encode(
+            x=alt.X("estado:N", sort=None),
+            y=alt.Y("cantidad:Q"),
+            text=alt.Text("cantidad:Q"),
+        )
+    )
+    return _base(alt.layer(barras, cifras), alto)
+
+
+def medidor(porcentaje: float, etiqueta: str, alto: int = 158) -> alt.LayerChart:
+    """Anillo con un porcentaje grande en el centro. Para efectividad y ocupación."""
+    porcentaje = max(0.0, min(100.0, porcentaje))
+    datos = pd.DataFrame({
+        "parte": ["Logrado", "Falta"],
+        "valor": [porcentaje, 100 - porcentaje],
+        "orden": [0, 1],
+    })
+
+    aro = (
+        alt.Chart(datos)
+        .mark_arc(innerRadius=54, outerRadius=72, cornerRadius=2)
+        .encode(
+            theta=alt.Theta("valor:Q", stack=True),
+            order=alt.Order("orden:Q"),
+            color=alt.Color(
+                "parte:N",
+                scale=alt.Scale(domain=["Logrado", "Falta"],
+                                range=[DORADO, SUPERFICIE_ALTA]),
+                legend=None,
+            ),
+            tooltip=alt.value(None),
+        )
+    )
+    centro = (
+        alt.Chart(pd.DataFrame({"t": [f"{porcentaje:.0f}%"]}))
+        .mark_text(font=FUENTE, fontSize=38, fontWeight=600, color=DORADO_CLARO, dy=-4)
+        .encode(text="t:N")
+    )
+    pie = (
+        alt.Chart(pd.DataFrame({"t": [etiqueta.upper()]}))
+        .mark_text(font=FUENTE, fontSize=9.5, color=GRIS_CALIDO, dy=22)
+        .encode(text="t:N")
+    )
+    return _base(alt.layer(aro, centro, pie), alto)
+
+
+def linea_por_dia(datos: pd.DataFrame, campo: str, titulo: str,
+                  alto: int = 190) -> alt.LayerChart:
+    """Línea con el comportamiento día a día. `datos` trae `etiqueta` y el campo pedido.
+
+    El día más alto se marca con un punto grande: es la respuesta a "¿qué día rinde
+    más?", que es para lo que se mira esta gráfica.
+    """
+    if datos.empty:
+        datos = pd.DataFrame({"etiqueta": [], campo: []})
+
+    maximo = datos[campo].max() if not datos.empty else 0
+
+    degradado = alt.Gradient(
+        gradient="linear",
+        stops=[
+            alt.GradientStop(color="rgba(201,162,39,0.02)", offset=0),
+            alt.GradientStop(color="rgba(201,162,39,0.35)", offset=1),
+        ],
+        x1=1, x2=1, y1=1, y2=0,
+    )
+    area = (
+        alt.Chart(datos)
+        .mark_area(line={"color": DORADO_CLARO, "strokeWidth": 2.5}, color=degradado)
+        .encode(
+            x=alt.X("etiqueta:N", sort=None, title=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y(f"{campo}:Q", title=None, axis=alt.Axis(tickMinStep=1, grid=True)),
+            tooltip=[alt.Tooltip("etiqueta:N", title="Día"),
+                     alt.Tooltip(f"{campo}:Q", title=titulo)],
+        )
+    )
+    puntos = (
+        alt.Chart(datos)
+        .mark_point(filled=True, color=DORADO_CLARO)
+        .encode(
+            x=alt.X("etiqueta:N", sort=None),
+            y=alt.Y(f"{campo}:Q"),
+            size=alt.condition(
+                alt.datum[campo] >= maximo if maximo else alt.datum[campo] < 0,
+                alt.value(170), alt.value(55),
+            ),
+        )
+    )
+    cifras = (
+        alt.Chart(datos)
+        .mark_text(font=FUENTE, fontSize=11, color=BLANCO_CALIDO, dy=-14)
+        .encode(
+            x=alt.X("etiqueta:N", sort=None),
+            y=alt.Y(f"{campo}:Q"),
+            text=alt.condition(alt.datum[campo] > 0, alt.Text(f"{campo}:Q"), alt.value("")),
+        )
+    )
+    return _base(alt.layer(area, puntos, cifras), alto)
+
+
+def barras_horizontales(datos: pd.DataFrame, campo_etiqueta: str, campo_valor: str,
+                        alto: int = 190) -> alt.LayerChart:
+    """Ranking (top de clientes). Horizontal porque los nombres no caben de otra forma
+    en la pantalla de un celular."""
+    if datos.empty:
+        return _base(alt.Chart(pd.DataFrame({"x": [0]})).mark_point(opacity=0), alto)
+
+    barras = (
+        alt.Chart(datos)
+        .mark_bar(cornerRadiusTopRight=3, cornerRadiusBottomRight=3, height=22)
+        .encode(
+            y=alt.Y(f"{campo_etiqueta}:N", sort=None, title=None),
+            x=alt.X(f"{campo_valor}:Q", title=None, axis=alt.Axis(tickMinStep=1)),
+            color=alt.value(DORADO),
+            tooltip=[alt.Tooltip(f"{campo_etiqueta}:N", title=""),
+                     alt.Tooltip(f"{campo_valor}:Q", title="Cortes")],
+        )
+    )
+    cifras = (
+        alt.Chart(datos)
+        .mark_text(font=FUENTE, fontSize=12, color=BLANCO_CALIDO, dx=11)
+        .encode(
+            y=alt.Y(f"{campo_etiqueta}:N", sort=None),
+            x=alt.X(f"{campo_valor}:Q"),
+            text=alt.Text(f"{campo_valor}:Q"),
+        )
+    )
+    return _base(alt.layer(barras, cifras), alto)
+
+
 def area_ingresos(por_dia: pd.DataFrame, alto: int = 150) -> alt.LayerChart:
     """Ingresos por día, en área con degradado. `por_dia`: columnas `etiqueta` e
     `ingresos`."""

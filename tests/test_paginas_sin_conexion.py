@@ -19,6 +19,10 @@ PAGINAS = [
     "app/paginas/productos.py",
     "app/paginas/admin_login.py",
     "app/paginas/admin_inicio.py",
+    "app/paginas/admin_dia.py",
+    "app/paginas/admin_semana.py",
+    "app/paginas/admin_historial.py",
+    "app/paginas/admin_config.py",
 ]
 
 

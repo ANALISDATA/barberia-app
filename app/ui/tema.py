@@ -408,14 +408,18 @@ a.barra-col .barra-valor {{ color: {BLANCO_CALIDO} !important; }}
     color: {DORADO_CLARO} !important;
     background: {SUPERFICIE_ALTA} !important;
 }}
-.stButton > button[kind="primary"], .stFormSubmitButton > button {{
+/* Sólo la acción principal va en dorado. Antes se pintaba así CUALQUIER botón de
+   formulario, así que "Cancelar" gritaba igual que "Agendar" y los dos parecían la
+   opción correcta. */
+.stButton > button[kind="primary"],
+.stFormSubmitButton > button[kind="primaryFormSubmit"] {{
     background: linear-gradient(178deg, {DORADO_CLARO}, {DORADO} 55%, {DORADO_PROFUNDO}) !important;
     color: #14100A !important;
     border: none !important;
     font-weight: 600 !important;
     box-shadow: 0 8px 22px -10px rgba(201,162,39,0.8) !important;
 }}
-.stFormSubmitButton > button:hover {{ filter: brightness(1.07); }}
+.stFormSubmitButton > button[kind="primaryFormSubmit"]:hover {{ filter: brightness(1.07); }}
 
 /* Inputs */
 div[data-baseweb="input"], div[data-baseweb="select"] > div {{
