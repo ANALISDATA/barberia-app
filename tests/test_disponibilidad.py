@@ -208,3 +208,80 @@ def test_proximo_espacio_cambia_segun_la_hora_actual():
     tarde = proximo_espacio(LUNES, horario, {0: []}, SIN_EXCEPCIONES, [], ahora=datetime.combine(LUNES, time(8, 0)))
     assert temprano.inicio == time(7, 0)
     assert tarde.inicio == time(8, 30)
+
+
+# ---------------------------------------------------------------------------
+# Las horas se recalculan pegándose a lo que ya está reservado
+# ---------------------------------------------------------------------------
+# Pedido por el usuario: si alguien coge unas cejas de 15 min a las 7:00, el
+# siguiente corte NO debe caer a las 7:45 (rejilla fija, perdiendo media hora)
+# sino arrancar a las 7:15, pegado. Y así con cada cita que vaya entrando.
+
+def test_las_horas_se_pegan_a_la_cita_anterior():
+    horario = {0: (time(7, 0), time(12, 0))}
+    cejas = [(time(7, 0), time(7, 15))]  # 15 minutos a primera hora
+
+    libres = horarios_disponibles(LUNES, horario, {0: []}, SIN_EXCEPCIONES, cejas, duracion=45)
+    horas = [f.inicio for f in libres]
+
+    assert horas[0] == time(7, 15), "el corte debe arrancar pegado a las cejas, no a las 7:45"
+    assert horas[1] == time(8, 0)
+    assert horas[2] == time(8, 45)
+
+
+def test_se_recalcula_con_cada_cita_que_entra():
+    """Dos citas sueltas: las horas libres se acomodan alrededor de las dos."""
+    horario = {0: (time(7, 0), time(12, 0))}
+    citas = [(time(7, 0), time(7, 15)), (time(9, 0), time(9, 45))]
+
+    libres = horarios_disponibles(LUNES, horario, {0: []}, SIN_EXCEPCIONES, citas, duracion=45)
+    horas = [f.inicio for f in libres]
+
+    assert time(7, 15) in horas, "arranca pegado a las cejas"
+    assert time(8, 0) in horas
+    assert time(9, 45) in horas, "después de la cita de las 9 sigue pegado"
+    for f in libres:
+        for c_ini, c_fin in citas:
+            assert not (f.inicio < c_fin and c_ini < f.fin), "no puede pisar una cita"
+
+
+def test_sin_citas_el_dia_sigue_saliendo_igual_que_antes():
+    """La mejora no puede cambiar el caso normal: un día vacío arranca en la apertura."""
+    libres = horarios_disponibles(LUNES, HORARIO_NORMAL, DESCANSOS, SIN_EXCEPCIONES, [])
+    assert libres[0].inicio == time(7, 0)
+    assert libres[-1].fin == time(20, 0)
+
+
+def test_puede_pasarse_un_poco_del_descanso_para_no_perder_el_hueco():
+    """Con una cita de 40 min a primera hora, la mañana queda con un sobrante de 35
+    minutos justo antes del descanso: no alcanza para un corte de 45 y se perdería.
+    Con 10 minutos de tolerancia sí cabe, terminando a las 12:10."""
+    horario = {0: (time(7, 0), time(20, 0))}
+    descansos = {0: [(time(12, 0), time(14, 0))]}
+    citas = [(time(7, 0), time(7, 40))]
+
+    sin_tolerancia = horarios_disponibles(
+        LUNES, horario, descansos, SIN_EXCEPCIONES, citas, duracion=45, tolerancia=0
+    )
+    con_tolerancia = horarios_disponibles(
+        LUNES, horario, descansos, SIN_EXCEPCIONES, citas, duracion=45, tolerancia=10
+    )
+    assert len(con_tolerancia) == len(sin_tolerancia) + 1, (
+        "la tolerancia tiene que servir para un corte más"
+    )
+    extra = [f for f in con_tolerancia if f not in sin_tolerancia][0]
+    assert extra.inicio == time(11, 25)
+    assert extra.fin == time(12, 10), "se pasa 10 minutos del descanso, no más"
+
+
+def test_la_tolerancia_nunca_pisa_otra_cita():
+    """Pasarse del descanso es meterse en el tiempo del barbero; pasarse de una cita
+    sería agendar dos personas a la vez. Eso no puede pasar nunca."""
+    horario = {0: (time(7, 0), time(12, 0))}
+    citas = [(time(7, 40), time(8, 25))]
+
+    libres = horarios_disponibles(
+        LUNES, horario, {0: []}, SIN_EXCEPCIONES, citas, duracion=45, tolerancia=30
+    )
+    for f in libres:
+        assert not (f.inicio < time(8, 25) and time(7, 40) < f.fin), "pisó la cita"

@@ -99,34 +99,84 @@ def _tramos_abiertos(
     return [(a, b) for a, b in tramos if a < b]
 
 
+def _ratos_libres(
+    apertura: time,
+    cierre: time,
+    descansos: list[tuple[time, time]],
+    citas: list[tuple[time, time]],
+) -> list[tuple[time, time, bool]]:
+    """Los ratos de la jornada que no están ocupados por un descanso ni por una cita.
+
+    Devuelve `(inicio, fin, se_puede_pasar)`. `se_puede_pasar` dice si lo que viene
+    justo después es tiempo del barbero (un descanso o el cierre) y no otra cita: sólo
+    ahí tiene sentido permitir que una cita se pase unos minutos.
+    """
+    ocupado = sorted(
+        [(a, b, False) for a, b in citas] + [(a, b, True) for a, b in descansos]
+    )
+
+    libres: list[tuple[time, time, bool]] = []
+    cursor = apertura
+    for inicio_o, fin_o, es_descanso in ocupado:
+        if inicio_o > cursor:
+            libres.append((cursor, min(inicio_o, cierre), es_descanso))
+        cursor = max(cursor, fin_o)
+        if cursor >= cierre:
+            break
+    if cursor < cierre:
+        # Lo que hay después del último rato es el cierre: también es tiempo suyo.
+        libres.append((cursor, cierre, True))
+
+    return [(a, b, t) for a, b, t in libres if a < b]
+
+
 def _generar_bloques(
     apertura: time,
     cierre: time,
     descansos: list[tuple[time, time]],
     duracion: int,
+    citas: list[tuple[time, time]] = (),
+    tolerancia: int = 0,
 ) -> list[Franja]:
-    """Bloques consecutivos dentro de cada tramo de atención.
+    """Las horas que se pueden ofrecer, pegadas unas a otras.
 
-    IMPORTANTE -- por qué se generan por tramo y no de corrido desde la apertura:
-    con una rejilla única desde las 7:00, tras un descanso de 12:00 a 14:00 el
-    siguiente bloque caía a las 14:30 (porque el de 13:45 chocaba con el descanso y se
-    descartaba), y se perdían 30 minutos de agenda todos los días. Reiniciando en cada
-    tramo, el primer bloque de la tarde vuelve a ser a las 14:00 en punto y el último
-    del día cierra exactamente a la hora de cierre (19:15-20:00), que es justo lo que
-    pide la regla del negocio.
+    Los bloques se generan desde el inicio de CADA rato libre, no sobre una rejilla
+    fija del día. Es la diferencia entre aprovechar la agenda y desperdiciarla:
+
+      * Rejilla fija: unas cejas de 15 min a las 7:00 dejaban el siguiente corte en
+        las 7:45 (la casilla de la rejilla), tirando a la basura 7:15-7:45.
+      * Pegado: el siguiente corte arranca a las 7:15, y a partir de ahí todo se
+        recalcula solo cada vez que entra una cita.
+
+    Por la misma razón cada tramo arranca en su propio inicio: sin eso, tras el
+    descanso de 12:00-14:00 la tarde empezaba a las 14:30 en vez de las 14:00.
+
+    `tolerancia` son los minutos que una cita puede pasarse del descanso o del cierre
+    para no dejar ese rato muerto. NUNCA se aplica contra otra cita: pasarse del
+    descanso es meterse en el tiempo del barbero; pasarse de una cita sería poner dos
+    personas a la misma hora.
     """
     bloques: list[Franja] = []
     paso = timedelta(minutes=duracion)
+    margen = timedelta(minutes=tolerancia)
     hoy = date.today()
 
-    for tramo_inicio, tramo_fin in _tramos_abiertos(apertura, cierre, descansos):
-        cursor = datetime.combine(hoy, tramo_inicio)
-        limite = datetime.combine(hoy, tramo_fin)
-        while cursor + paso <= limite:
-            bloques.append(Franja(inicio=cursor.time(), fin=(cursor + paso).time()))
-            cursor += paso
+    for rato_inicio, rato_fin, se_puede_pasar in _ratos_libres(
+        apertura, cierre, descansos, list(citas)
+    ):
+        cursor = datetime.combine(hoy, rato_inicio)
+        limite = datetime.combine(hoy, rato_fin)
+        tope = limite + margen if se_puede_pasar else limite
 
-    return bloques
+        while cursor + paso <= tope:
+            fin = cursor + paso
+            # El día no puede desbordarse a la madrugada del día siguiente.
+            if fin.date() != cursor.date():
+                break
+            bloques.append(Franja(inicio=cursor.time(), fin=fin.time()))
+            cursor = fin
+
+    return sorted(bloques, key=lambda f: f.inicio)
 
 
 def horarios_disponibles(
@@ -137,35 +187,31 @@ def horarios_disponibles(
     citas_activas: list[tuple[time, time]],
     ahora: datetime | None = None,
     duracion: int = DURACION_MINUTOS,
+    tolerancia: int = 0,
 ) -> list[Franja]:
     """Calcula las horas realmente libres de un dia. La UNICA fuente de verdad.
 
-    `citas_activas`: horas ya ocupadas ese dia (estado distinto de "cancelada").
+    `citas_activas`: horas ya ocupadas ese dia (estado distinto de "cancelada"). No se
+        usan sólo para descartar bloques: son las que definen dónde empieza cada
+        bloque, porque las horas se pegan a lo que ya está reservado.
     `ahora`: se recibe por parametro (no se usa datetime.now() adentro) para que las
         pruebas puedan fijar una hora exacta sin depender del reloj real.
-    `duracion`: minutos que dura una cita. Configurable desde el panel (se guarda en
-        services.duration_minutes); 45 es solo el valor por defecto.
+    `duracion`: minutos que dura la cita. Cada servicio tiene la suya.
+    `tolerancia`: minutos que una cita puede pasarse del descanso o del cierre para no
+        dejar ese rato muerto. Nunca se aplica contra otra cita.
     """
     horario = resolver_horario_del_dia(fecha, horario_semanal, descansos_por_dia, excepciones)
     if horario.cerrado or horario.apertura is None or horario.cierre is None:
         return []
 
-    libres = []
-    for bloque in _generar_bloques(
-        horario.apertura, horario.cierre, horario.descansos, duracion
-    ):
-        si_choca_cita = any(
-            bloque.se_solapa_con(c_inicio, c_fin) for c_inicio, c_fin in citas_activas
-        )
-        if si_choca_cita:
-            continue
+    bloques = _generar_bloques(
+        horario.apertura, horario.cierre, horario.descansos, duracion,
+        citas=citas_activas, tolerancia=tolerancia,
+    )
 
-        if ahora is not None and fecha == ahora.date() and bloque.inicio < ahora.time():
-            continue
-
-        libres.append(bloque)
-
-    return libres
+    if ahora is None or fecha != ahora.date():
+        return bloques
+    return [b for b in bloques if b.inicio >= ahora.time()]
 
 
 @dataclass(frozen=True)

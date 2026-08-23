@@ -152,7 +152,7 @@ def render():
 
     libres = horarios_disponibles(
         fecha, horario_semanal, descansos, excepciones, citas_activas,
-        ahora=ahora, duracion=duracion,
+        ahora=ahora, duracion=duracion, tolerancia=catalogo.tolerancia_minutos(),
     )
 
     # ---------- Paso 3: la hora ----------

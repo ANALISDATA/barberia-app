@@ -68,11 +68,11 @@ def render():
     ]
     libres = horarios_disponibles(
         hoy, horario_semanal, descansos, excepciones, ocupadas,
-        ahora=ahora, duracion=duracion,
+        ahora=ahora, duracion=duracion, tolerancia=catalogo.tolerancia_minutos(),
     )
     siguiente = proximo_espacio(
         hoy, horario_semanal, descansos, excepciones, ocupadas,
-        ahora=ahora, duracion=duracion,
+        ahora=ahora, duracion=duracion, tolerancia=catalogo.tolerancia_minutos(),
     )
 
     saludo = (
@@ -153,6 +153,7 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
     libres = horarios_disponibles(
         fecha, horario_semanal, descansos, excepciones, ocupadas,
         ahora=ahora if fecha == hoy else None, duracion=duracion,
+        tolerancia=catalogo.tolerancia_minutos(),
     )
 
     st.caption(f"Ese día caben {len(bloques)} cortes en total.")

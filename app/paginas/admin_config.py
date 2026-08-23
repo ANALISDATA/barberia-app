@@ -70,6 +70,8 @@ def _bloque_servicios():
         ):
             _editor_servicio(s)
 
+    _control_tolerancia()
+
     with st.expander("＋ Agregar un servicio nuevo"):
         with st.form("nuevo_servicio"):
             nombre = st.text_input("Nombre", placeholder="Solo cejas, Solo barba, Cerquillo...")
@@ -96,6 +98,34 @@ def _bloque_servicios():
                 else:
                     st.success(f"Servicio «{nombre.strip()}» creado.")
                     st.rerun()
+
+
+def _control_tolerancia():
+    """Cuánto se puede pasar una cita del descanso o del cierre."""
+    actual = catalogo.tolerancia_minutos()
+    minutos = st.select_slider(
+        "Puedo pasarme del descanso hasta",
+        options=[0, 5, 10, 15, 20, 30],
+        value=actual if actual in (0, 5, 10, 15, 20, 30) else 0,
+        format_func=lambda m: "Nada" if m == 0 else f"{m} minutos",
+    )
+    st.caption(
+        "Antes del almuerzo casi siempre sobra un rato que no alcanza para otro corte "
+        "y se pierde. Con unos minutos de margen esa cita sí cabe y termina un poco "
+        "dentro de tu descanso. Nunca se mete en la cita de otro cliente."
+    )
+    if minutos != actual and st.button("Guardar el margen", type="primary", width="stretch"):
+        try:
+            catalogo.guardar_tolerancia(int(minutos))
+        except Exception as err:
+            st.error(
+                "No se pudo guardar. Si es la primera vez, falta correr en Supabase el "
+                "archivo `supabase/004_tolerancia.sql`."
+            )
+            st.caption(f"Detalle técnico: {err}")
+        else:
+            st.success("Margen guardado.")
+            st.rerun()
 
 
 def _editor_servicio(s):

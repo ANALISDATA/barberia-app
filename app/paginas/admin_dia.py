@@ -50,7 +50,8 @@ def render():
         if c["status"] != "cancelada"
     ]
     libres = horarios_disponibles(
-        hoy, horario, descansos, excepciones, ocupadas, ahora=ahora, duracion=duracion
+        hoy, horario, descansos, excepciones, ocupadas, ahora=ahora,
+        duracion=duracion, tolerancia=catalogo.tolerancia_minutos(),
     )
     bloques, _ = analizar_jornada(hoy, horario, descansos, excepciones, duracion)
     espacios_del_dia = len(bloques)

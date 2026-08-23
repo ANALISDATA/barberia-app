@@ -52,6 +52,30 @@ def duracion_de(tipo: str, por_defecto: int = DURACION_POR_DEFECTO) -> int:
     return por_defecto
 
 
+def tolerancia_minutos() -> int:
+    """Minutos que una cita puede pasarse del descanso o del cierre.
+
+    Sirve para no dejar muerto el rato que sobra antes del almuerzo: si faltan 35
+    minutos y el corte son 45, con 10 de tolerancia el corte cabe y termina 10 minutos
+    dentro del descanso. Nunca se aplica contra otra cita.
+    """
+    try:
+        negocio = (
+            _cliente().table("business").select("tolerancia_minutos")
+            .eq("id", NEGOCIO_ID).single().execute()
+        )
+        return int(negocio.data.get("tolerancia_minutos") or 0)
+    except Exception:
+        # La columna no existe todavía (falta la migración 004): sin tolerancia.
+        return 0
+
+
+def guardar_tolerancia(minutos: int) -> None:
+    _cliente().table("business").update(
+        {"tolerancia_minutos": int(minutos)}
+    ).eq("id", NEGOCIO_ID).execute()
+
+
 def duracion_mas_larga() -> int:
     """La duración del servicio más largo.
 
