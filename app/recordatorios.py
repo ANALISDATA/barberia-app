@@ -138,17 +138,52 @@ def marcar_escrito(cliente_id: str, hoy: date) -> None:
     ).eq("id", cliente_id).execute()
 
 
-def mensaje(cliente: ClienteDormido, negocio: dict, enlace: str) -> str:
-    """El texto que se le manda. Se tutea y se firma con el nombre del negocio: es un
-    mensaje de un barbero a su cliente, no una notificación de un sistema."""
+def mensaje(
+    cliente: ClienteDormido,
+    negocio: dict,
+    enlace: str,
+    horario: str = "",
+    servicio: str = "",
+) -> str:
+    """El texto que se le manda.
+
+    Se escribe como lo escribiría el barbero, no como lo escribiría un sistema: tutea,
+    saluda por el nombre, menciona lo que suele pedir y se firma. Un mensaje que suena
+    a robot se ignora; uno que suena a que el barbero se acordó de uno, no.
+
+    Los emojis van al principio de cada línea a modo de viñeta -- así el mensaje se lee
+    de un vistazo en la pantalla del celular, sin ser un bloque de texto corrido.
+    """
     nombre_corto = cliente.nombre.split()[0].title() if cliente.nombre else ""
     saludo = f"¡Hola {nombre_corto}!" if nombre_corto else "¡Hola!"
-    return (
-        f"{saludo} 💈\n\n"
-        f"Ya va siendo hora de tu corte. Pide tu cita aquí, eliges el día y la hora "
-        f"que te sirva:\n\n{enlace}\n\n"
-        f"{negocio.get('name', '')}"
-    )
+
+    lineas = [f"{saludo} ✂️", ""]
+
+    # Mencionar lo que suele pedir demuestra que se le recuerda. Sin el dato, se omite:
+    # inventarse un servicio quedaría peor que no decir nada.
+    if servicio:
+        lineas.append(f"Ya va siendo hora de tu *{servicio.lower()}* 💈")
+    else:
+        lineas.append("Ya va siendo hora de tu corte 💈")
+
+    lineas += [
+        "Aparta tu cita cuando quieras, sin llamar y sin hacer fila.",
+        "",
+        "📅 *Elige el día y la hora que te sirva:*",
+        enlace,
+        "",
+    ]
+
+    if negocio.get("address"):
+        lineas.append(f"📍 {negocio['address']}")
+    if horario:
+        lineas.append(f"🕐 {horario}")
+    if negocio.get("phone"):
+        lineas.append(f"📲 {negocio['phone']}")
+
+    lineas += ["", f"¡Te esperamos! 🔥", f"*{negocio.get('name', '')}*"]
+
+    return "\n".join(lineas)
 
 
 def url_whatsapp(cliente: ClienteDormido, texto: str) -> str:

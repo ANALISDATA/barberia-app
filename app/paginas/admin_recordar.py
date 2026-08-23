@@ -9,6 +9,7 @@ import streamlit as st
 
 from app import catalogo, db, recordatorios
 from app.ui import menu, tema
+from app.ui.tema import resumen_horario_texto
 from config import ZONA_HORARIA
 
 ENLACE_APP = "https://esteban-barber.streamlit.app"
@@ -53,6 +54,9 @@ def render():
     dormidos = recordatorios.buscar(hoy, dias)
     negocio = db.obtener_negocio()
     nombres = catalogo.nombres_servicios()
+    # El horario se arma con el mismo texto que ve el cliente en la portada, para que
+    # no haya dos versiones del horario circulando.
+    horario = resumen_horario_texto(db.obtener_horario_semanal()).replace("<br>", " · ")
 
     if not dormidos:
         tema.aviso_vacio(
@@ -80,7 +84,9 @@ def render():
             f"{c.ultima_visita.strftime('%d/%m')} · {servicio}{avisado}",
         )
 
-        texto = recordatorios.mensaje(c, negocio, ENLACE_APP)
+        texto = recordatorios.mensaje(
+            c, negocio, ENLACE_APP, horario=horario, servicio=servicio
+        )
         url = recordatorios.url_whatsapp(c, texto)
 
         if not url:
@@ -89,15 +95,23 @@ def render():
 
         col_a, col_b = st.columns([3, 2])
         with col_a:
-            st.link_button("💬  Escribirle por WhatsApp", url, width="stretch",
-                           type="primary")
+            st.link_button("💬  Abrir el chat", url, width="stretch", type="primary")
         with col_b:
             if st.button("Ya le escribí", key=f"ok_{c.cliente_id}", width="stretch"):
                 recordatorios.marcar_escrito(c.cliente_id, hoy)
                 st.rerun()
 
-        with st.expander("Ver el mensaje que se le va a enviar"):
-            st.text(texto)
+        # El mensaje también va en un bloque copiable. WhatsApp de computador daña los
+        # emojis que viajan dentro de un enlace (comprobado: los acentos llegan bien y
+        # los emojis salen como "?"), y eso pasa al abrir el enlace, no al generarlo,
+        # así que no se puede arreglar desde aquí. Copiando y pegando no hay enlace de
+        # por medio y los emojis llegan intactos.
+        with st.expander("Copiar el mensaje (si los emojis se ven mal)"):
+            st.code(texto, language=None)
+            st.caption(
+                "Toca el ícono de copiar de la esquina, abre el chat y pégalo. "
+                "Así los emojis llegan siempre bien."
+            )
 
     st.caption(
         "Al pulsar **Escribirle** se abre WhatsApp con el mensaje ya escrito: sólo le "
