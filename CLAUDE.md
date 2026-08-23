@@ -69,16 +69,25 @@ Resultado: la página nueva llama a una función vieja y la app se cae.
 **No se cura solo**: se probó esperar y siguió caída. Hace falta *Reboot app* desde
 Streamlit Cloud, que sólo puede hacer el usuario.
 
-**Reglas para no repetirlo:**
+Ha pasado **tres veces**, siempre igual: `ImportError` (nombre nuevo en `navegacion.py`),
+`TypeError` (parámetro nuevo en `tema.py`) y `AttributeError` (función nueva en
+`catalogo.py`). Las tres tumbaron la app en producción.
 
-1. **Cambiar la firma de una función de `tema.py`, `db.py` o `navegacion.py` obliga a
-   reiniciar la app** después de subir. Avisar SIEMPRE al usuario cuando el cambio sea
-   de ese tipo.
-2. Si el cambio tiene que quedar arriba sin reiniciar, meterlo en un **módulo nuevo**:
-   uno que nunca se ha importado no tiene versión vieja en memoria. Así se resolvió el
-   botón de volver (`app/ui/volver.py`) — ver el comentario de ese archivo.
-3. **Después de CADA push, correr `Comprobar_App_En_Linea.py`.** Que las pruebas locales
-   pasen no dice nada sobre si la app está arriba. Esta app tiene que estar 24/7.
+**LA REGLA, y no tiene excepciones:**
+
+> **Toda función, parámetro o nombre NUEVO que una página vaya a usar va en un módulo
+> NUEVO.** Nunca añadido a uno que ya existía (`db.py`, `tema.py`, `catalogo.py`,
+> `navegacion.py`...). Un módulo que nunca se importó no tiene versión vieja en memoria.
+
+Ejemplos de esa regla en el proyecto: `app/ui/volver.py`, `app/ui/menu.py`,
+`app/catalogo.py`, `app/margen.py`. Cada uno nació porque meterlo donde "correspondía"
+habría tumbado la app.
+
+Si por lo que sea hay que tocar un módulo compartido, entonces **avisar al usuario de
+que tiene que reiniciar la app** desde Streamlit Cloud después de publicar.
+
+Y siempre: **después de CADA push, correr `Comprobar_App_En_Linea.py`.** Que las pruebas
+locales pasen no dice nada sobre si la app está arriba. Esta app tiene que estar 24/7.
 
 ## Trampa ya encontrada: `st.secrets.get()` no es un dict seguro
 

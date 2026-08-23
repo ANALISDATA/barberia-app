@@ -8,7 +8,7 @@ from datetime import datetime, time
 
 import streamlit as st
 
-from app import catalogo, db
+from app import catalogo, db, margen
 from app.disponibilidad import analizar_jornada, horarios_disponibles
 from app.indicadores import resumir
 from app.ui import graficos, menu, tema
@@ -51,7 +51,7 @@ def render():
     ]
     libres = horarios_disponibles(
         hoy, horario, descansos, excepciones, ocupadas, ahora=ahora,
-        duracion=duracion, tolerancia=catalogo.tolerancia_minutos(),
+        duracion=duracion, tolerancia=margen.minutos(),
     )
     bloques, _ = analizar_jornada(hoy, horario, descansos, excepciones, duracion)
     espacios_del_dia = len(bloques)

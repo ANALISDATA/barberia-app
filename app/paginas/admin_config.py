@@ -10,7 +10,7 @@ from datetime import time
 
 import streamlit as st
 
-from app import catalogo, db
+from app import catalogo, db, margen
 from app.ui import menu, tema
 from config import NOMBRES_DIA
 
@@ -102,11 +102,11 @@ def _bloque_servicios():
 
 def _control_tolerancia():
     """Cuánto se puede pasar una cita del descanso o del cierre."""
-    actual = catalogo.tolerancia_minutos()
+    actual = margen.minutos()
     minutos = st.select_slider(
         "Puedo pasarme del descanso hasta",
-        options=[0, 5, 10, 15, 20, 30],
-        value=actual if actual in (0, 5, 10, 15, 20, 30) else 0,
+        options=margen.OPCIONES,
+        value=actual if actual in margen.OPCIONES else 0,
         format_func=lambda m: "Nada" if m == 0 else f"{m} minutos",
     )
     st.caption(
@@ -116,7 +116,7 @@ def _control_tolerancia():
     )
     if minutos != actual and st.button("Guardar el margen", type="primary", width="stretch"):
         try:
-            catalogo.guardar_tolerancia(int(minutos))
+            margen.guardar(int(minutos))
         except Exception as err:
             st.error(
                 "No se pudo guardar. Si es la primera vez, falta correr en Supabase el "

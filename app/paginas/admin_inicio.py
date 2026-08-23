@@ -11,7 +11,7 @@ from datetime import datetime, time, timedelta
 
 import streamlit as st
 
-from app import catalogo, db
+from app import catalogo, db, margen
 from app.disponibilidad import (
     analizar_jornada,
     descansos_efectivos,
@@ -68,11 +68,11 @@ def render():
     ]
     libres = horarios_disponibles(
         hoy, horario_semanal, descansos, excepciones, ocupadas,
-        ahora=ahora, duracion=duracion, tolerancia=catalogo.tolerancia_minutos(),
+        ahora=ahora, duracion=duracion, tolerancia=margen.minutos(),
     )
     siguiente = proximo_espacio(
         hoy, horario_semanal, descansos, excepciones, ocupadas,
-        ahora=ahora, duracion=duracion, tolerancia=catalogo.tolerancia_minutos(),
+        ahora=ahora, duracion=duracion, tolerancia=margen.minutos(),
     )
 
     saludo = (
@@ -153,7 +153,7 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
     libres = horarios_disponibles(
         fecha, horario_semanal, descansos, excepciones, ocupadas,
         ahora=ahora if fecha == hoy else None, duracion=duracion,
-        tolerancia=catalogo.tolerancia_minutos(),
+        tolerancia=margen.minutos(),
     )
 
     st.caption(f"Ese día caben {len(bloques)} cortes en total.")
