@@ -22,6 +22,7 @@ PAGINAS = [
     "app/paginas/admin_dia.py",
     "app/paginas/admin_semana.py",
     "app/paginas/admin_historial.py",
+    "app/paginas/admin_recordar.py",
     "app/paginas/admin_config.py",
 ]
 

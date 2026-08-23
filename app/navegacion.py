@@ -33,6 +33,9 @@ admin_semana = st.Page(
 admin_historial = st.Page(
     "app/paginas/admin_historial.py", title="Historial", icon="🏆", url_path="historial",
 )
+admin_recordar = st.Page(
+    "app/paginas/admin_recordar.py", title="Invitar a volver", icon="💬", url_path="recordar",
+)
 admin_config = st.Page(
     "app/paginas/admin_config.py", title="Configuración", icon="⚙️", url_path="configuracion",
 )
@@ -44,5 +47,6 @@ MENU_ADMIN = [
     (admin_dia, "Hoy", "📊"),
     (admin_semana, "Semana", "📈"),
     (admin_historial, "Top", "🏆"),
+    (admin_recordar, "Volver", "💬"),
     (admin_config, "Ajustes", "⚙️"),
 ]

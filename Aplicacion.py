@@ -11,6 +11,7 @@ from app.navegacion import (
     admin_historial,
     admin_inicio,
     admin_login,
+    admin_recordar,
     admin_semana,
     cita,
     inicio,
@@ -41,7 +42,7 @@ st.set_page_config(
 # pulsar. Se dibuja con botones propios en cada pagina (`app/ui/menu.py`).
 if st.session_state.get("admin_autenticado"):
     paginas = [inicio, cita, productos, admin_inicio, admin_dia,
-               admin_semana, admin_historial, admin_config]
+               admin_semana, admin_historial, admin_recordar, admin_config]
 else:
     paginas = [inicio, cita, productos, admin_login]
 
