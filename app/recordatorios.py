@@ -24,7 +24,7 @@ Quién entra en la lista, y por qué así:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from urllib.parse import quote
 
 from app.db import NEGOCIO_ID, _cliente
@@ -181,7 +181,7 @@ def mensaje(
     if negocio.get("phone"):
         lineas.append(f"📲 {negocio['phone']}")
 
-    lineas += ["", f"¡Te esperamos! 🔥", f"*{negocio.get('name', '')}*"]
+    lineas += ["", "¡Te esperamos! 🔥", f"*{negocio.get('name', '')}*"]
 
     return "\n".join(lineas)
 

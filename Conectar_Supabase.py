@@ -39,8 +39,7 @@ def main() -> int:
         print("  Vuelve a correr este script cuando lo hayas hecho.")
         return 1
 
-    import streamlit as st
-    from app import db
+        from app import db
 
     if not db._secrets_completos():
         print("✖ El archivo secrets.toml existe pero faltan supabase_url o supabase_key.")

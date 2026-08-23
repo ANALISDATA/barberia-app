@@ -12,7 +12,6 @@ from datetime import datetime, time, timedelta
 import streamlit as st
 
 from app import alertas, catalogo, db, horarios, margen
-from app.disponibilidad import analizar_jornada
 from app.ui import menu, tema
 from config import NOMBRES_DIA, ZONA_HORARIA, fecha_larga
 
@@ -207,11 +206,13 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
         tolerancia=margen.minutos(),
     )
 
+    nombres = catalogo.nombres_servicios()
+
     st.caption(f"Ese día caben {caben} cortes en total.")
     vista = _selector_de_vista(len(reservadas), len(libres))
 
     if vista == "reservadas":
-        _tabla_reservadas(reservadas, fecha, hoy)
+        _tabla_reservadas(reservadas, fecha, hoy, nombres)
     else:
         _tabla_disponibles(libres, fecha, hoy, duracion)
 
@@ -224,7 +225,7 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
             f"Descanso · {minutos_m} min",
         )
 
-    _consolidado_del_dia(reservadas, fecha)
+    _consolidado_del_dia(reservadas, fecha, nombres)
 
 
 def _selector_de_dia(hoy):
@@ -270,7 +271,7 @@ def _selector_de_vista(n_reservadas, n_libres):
     return st.session_state["vista_agenda"]
 
 
-def _tabla_reservadas(reservadas, fecha, hoy):
+def _tabla_reservadas(reservadas, fecha, hoy, nombres):
     if not reservadas:
         tema.aviso_vacio("No hay citas reservadas ese día.")
         return
@@ -303,7 +304,7 @@ def _tabla_reservadas(reservadas, fecha, hoy):
                 st.rerun()
 
 
-def _consolidado_del_dia(reservadas, fecha):
+def _consolidado_del_dia(reservadas, fecha, nombres):
     """Tabla para cuadrar los ingresos: se ajusta cita por cita lo que de verdad se
     cobró. Existe porque el barbero no le cobra lo mismo a todo el mundo -- el precio
     del servicio es sólo el punto de partida.

@@ -8,7 +8,7 @@ El orden de la página es deliberado: primero el titular (cuánto se hizo), desp
 detalle, después qué día rindió más, y al final el cierre. Se lee de arriba abajo como
 un resumen, no como una tabla de datos sueltos.
 """
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 import streamlit as st

@@ -14,7 +14,6 @@ panel del administrador).
 from __future__ import annotations
 
 from datetime import date, time
-from functools import lru_cache
 
 import streamlit as st
 
