@@ -8,7 +8,7 @@ from datetime import datetime, time
 
 import streamlit as st
 
-from app import db
+from app import catalogo, db
 from app.disponibilidad import analizar_jornada, horarios_disponibles
 from app.indicadores import resumir
 from app.ui import graficos, menu, tema
@@ -39,7 +39,7 @@ def render():
     horario = db.obtener_horario_semanal()
     descansos = db.obtener_descansos()
     excepciones = db.obtener_excepciones(hoy, hoy)
-    duracion = db.obtener_duracion_cita()
+    duracion = catalogo.duracion_mas_larga()
     citas = db.obtener_citas_del_dia(hoy)
 
     r = resumir(citas)

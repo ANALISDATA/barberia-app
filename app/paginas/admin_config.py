@@ -10,9 +10,9 @@ from datetime import time
 
 import streamlit as st
 
-from app import db
+from app import catalogo, db
 from app.ui import menu, tema
-from config import NOMBRES_DIA, NOMBRES_SERVICIO
+from config import NOMBRES_DIA
 
 # Duraciones ofrecidas. Se listan en vez de dejar un campo libre para que no se cuelen
 # valores absurdos (0 minutos, 7 horas) que romperían la agenda sin explicación.
@@ -23,6 +23,10 @@ HORAS = [time(h, m) for h in range(5, 24) for m in (0, 15, 30, 45)]
 
 def _fmt(t: time) -> str:
     return t.strftime("%I:%M %p").lstrip("0").replace("AM", "a.m.").replace("PM", "p.m.")
+
+
+def _pesos(valor: int) -> str:
+    return "$" + f"{valor:,.0f}".replace(",", ".")
 
 
 def render():
@@ -40,57 +44,194 @@ def render():
     menu.pintar("configuracion")
     tema.saludo("Configuración", "Ajusta tu barbería a tu medida")
 
-    _bloque_duracion()
-    _bloque_precios()
+    _bloque_servicios()
+    _bloque_productos()
     _bloque_horario()
     _bloque_negocio()
 
     tema.pie_de_pagina(db.obtener_negocio())
 
 
-def _bloque_duracion():
-    tema.seccion("Duración de la cita", eyebrow="Cada cuánto atiendes", compacta=True)
+def _bloque_servicios():
+    """Servicios: cada uno con su nombre, precio y DURACIÓN propia.
 
-    actual = db.obtener_duracion_cita()
-    indice = DURACIONES.index(actual) if actual in DURACIONES else DURACIONES.index(45)
+    Antes eran dos fijos ("sin barba" y "con barba") escritos en la base de datos. Ahora
+    se pueden agregar los que sean -- solo barba, cejas, lo que se ofrezca -- y cada uno
+    ocupa en la agenda el tiempo que de verdad toma.
+    """
+    tema.seccion("Servicios", eyebrow="Lo que ofreces", compacta=True)
 
-    minutos = st.selectbox(
-        "Minutos por cita",
-        options=DURACIONES,
-        index=indice,
-        format_func=lambda m: f"{m} minutos",
-    )
-    st.caption(
-        "Con este valor se arma toda la agenda. Si lo cambias, las horas disponibles "
-        "se recalculan solas; las citas ya reservadas no se tocan."
-    )
-    if st.button("Guardar duración", type="primary", width="stretch"):
-        db.guardar_duracion_cita(int(minutos))
-        st.success(f"Listo: las citas ahora duran {minutos} minutos.")
+    activos = catalogo.servicios(solo_activos=False)
+
+    for s in activos:
+        estado = "" if s["active"] else "  (apagado)"
+        with st.expander(
+            f'{s["name"]} — {_pesos(s["price"])} · {s.get("duration_minutes") or 45} min{estado}'
+        ):
+            _editor_servicio(s)
+
+    with st.expander("＋ Agregar un servicio nuevo"):
+        with st.form("nuevo_servicio"):
+            nombre = st.text_input("Nombre", placeholder="Solo cejas, Solo barba, Cerquillo...")
+            col_a, col_b = st.columns(2)
+            precio = col_a.number_input("Precio", min_value=0, step=1000, value=15000)
+            duracion = col_b.selectbox("Dura", DURACIONES, index=DURACIONES.index(15),
+                                       format_func=lambda m: f"{m} minutos")
+            crear = st.form_submit_button("Crear servicio", type="primary", width="stretch")
+
+        if crear:
+            if not nombre.strip():
+                st.error("Ponle un nombre al servicio.")
+            else:
+                try:
+                    catalogo.crear_servicio(nombre, int(precio), int(duracion))
+                except catalogo.TipoRepetido:
+                    st.error("Ya tienes un servicio con ese nombre.")
+                except Exception as err:
+                    st.error(
+                        "No se pudo crear. Si es la primera vez, falta correr en "
+                        "Supabase el archivo `supabase/003_servicios_y_productos.sql`."
+                    )
+                    st.caption(f"Detalle técnico: {err}")
+                else:
+                    st.success(f"Servicio «{nombre.strip()}» creado.")
+                    st.rerun()
+
+
+def _editor_servicio(s):
+    with st.form(f"srv_{s['id']}"):
+        nombre = st.text_input("Nombre", value=s["name"], key=f"sn_{s['id']}")
+        col_a, col_b = st.columns(2)
+        precio = col_a.number_input(
+            "Precio", min_value=0, step=1000, value=int(s["price"]), key=f"sp_{s['id']}"
+        )
+        actual = s.get("duration_minutes") or 45
+        duracion = col_b.selectbox(
+            "Dura", DURACIONES,
+            index=DURACIONES.index(actual) if actual in DURACIONES else DURACIONES.index(45),
+            format_func=lambda m: f"{m} minutos", key=f"sd_{s['id']}",
+        )
+        guardar = st.form_submit_button("Guardar", type="primary", width="stretch")
+
+    if guardar:
+        catalogo.actualizar_servicio(s["id"], {
+            "name": nombre.strip(), "price": int(precio),
+            "duration_minutes": int(duracion),
+        })
+        st.success("Servicio actualizado.")
         st.rerun()
 
-
-def _bloque_precios():
-    tema.seccion("Precios", eyebrow="Valor de referencia", compacta=True)
-
-    servicios = {s["type"]: s for s in db.obtener_servicios()}
-    nuevos = {}
-    for tipo, servicio in servicios.items():
-        nuevos[tipo] = st.number_input(
-            NOMBRES_SERVICIO.get(tipo, tipo),
-            min_value=0,
-            step=1000,
-            value=int(servicio["price"]),
-            key=f"precio_{tipo}",
+    if s["active"]:
+        st.caption(
+            "Apagarlo lo quita de la lista que ve el cliente. No se borra: las citas "
+            "que ya se hicieron con él siguen contando en tus estadísticas."
         )
-    st.caption(
-        "Es el valor con el que se guarda cada cita nueva. Como no le cobras lo mismo "
-        "a todo el mundo, puedes ajustar cita por cita desde el consolidado del panel."
-    )
-    if st.button("Guardar precios", type="primary", width="stretch"):
-        for tipo, precio in nuevos.items():
-            db.guardar_precio_servicio(tipo, int(precio))
-        st.success("Precios actualizados.")
+        if st.button("Apagar este servicio", key=f"off_{s['id']}", width="stretch"):
+            if len([x for x in catalogo.servicios() if x["active"]]) <= 1:
+                st.error("Tiene que quedar al menos un servicio encendido.")
+            else:
+                catalogo.desactivar_servicio(s["id"])
+                st.rerun()
+    else:
+        if st.button("Volver a encenderlo", key=f"on_{s['id']}",
+                     type="primary", width="stretch"):
+            catalogo.activar_servicio(s["id"])
+            st.rerun()
+
+
+def _bloque_productos():
+    tema.seccion("Productos", eyebrow="Lo que vendes", compacta=True)
+
+    if not catalogo.hay_tabla_productos():
+        st.info(
+            "Para manejar los productos desde aquí falta un paso de una sola vez: "
+            "correr en Supabase el archivo `supabase/003_servicios_y_productos.sql`."
+        )
+        return
+
+    lista = catalogo.productos(solo_activos=False)
+    if not lista:
+        st.caption(
+            "Todavía no hay productos en la base de datos. Mientras tanto, el catálogo "
+            "público sigue mostrando los 6 que venían cargados en la app."
+        )
+        if st.button("Pasar esos 6 productos aquí para poder editarlos",
+                     type="primary", width="stretch"):
+            cuantos = _importar_productos_iniciales()
+            st.success(f"{cuantos} producto(s) importados. Ya puedes editarlos.")
+            st.rerun()
+
+    for prod in lista:
+        with st.expander(f'{prod["nombre"]} — {_pesos(prod["precio"])}'):
+            _editor_producto(prod)
+
+    with st.expander("＋ Agregar un producto nuevo"):
+        with st.form("nuevo_producto"):
+            nombre = st.text_input("Nombre", placeholder="Cera, tónico, shampoo...")
+            precio = st.number_input("Precio", min_value=0, step=1000, value=30000)
+            descripcion = st.text_area("Descripción", height=80,
+                                       placeholder="Para qué sirve, qué efecto tiene...")
+            foto = st.file_uploader("Foto", type=["jpg", "jpeg", "png", "webp"])
+            crear = st.form_submit_button("Crear producto", type="primary", width="stretch")
+
+        if crear:
+            if not nombre.strip():
+                st.error("Ponle un nombre al producto.")
+            else:
+                imagen = catalogo.preparar_imagen(foto) if foto else None
+                catalogo.crear_producto(nombre, int(precio), descripcion, imagen)
+                st.success(f"Producto «{nombre.strip()}» creado.")
+                st.rerun()
+
+
+def _importar_productos_iniciales() -> int:
+    """Pasa a la base de datos los productos que venían escritos en el código, con sus
+    fotos. Se hace una sola vez y con un botón, no automático: escribir datos sin que
+    nadie lo pida siempre acaba en sorpresas."""
+    import base64
+    from pathlib import Path
+
+    from app.productos import PRODUCTOS
+
+    importados = 0
+    for p in PRODUCTOS:
+        ruta = Path("assets/productos") / p["imagen"]
+        imagen = None
+        if ruta.exists():
+            imagen = base64.b64encode(ruta.read_bytes()).decode()
+        catalogo.crear_producto(p["nombre"], p["precio"], p["descripcion"], imagen)
+        importados += 1
+    return importados
+
+
+def _editor_producto(prod):
+    if prod.get("imagen_base64"):
+        st.image(f"data:image/jpeg;base64,{prod['imagen_base64']}", width=140)
+
+    with st.form(f"prod_{prod['id']}"):
+        nombre = st.text_input("Nombre", value=prod["nombre"], key=f"pn_{prod['id']}")
+        precio = st.number_input("Precio", min_value=0, step=1000,
+                                 value=int(prod["precio"]), key=f"pp_{prod['id']}")
+        descripcion = st.text_area("Descripción", value=prod.get("descripcion") or "",
+                                   height=80, key=f"pd_{prod['id']}")
+        foto = st.file_uploader("Cambiar la foto", type=["jpg", "jpeg", "png", "webp"],
+                                key=f"pf_{prod['id']}")
+        guardar = st.form_submit_button("Guardar", type="primary", width="stretch")
+
+    if guardar:
+        datos = {
+            "nombre": nombre.strip(), "precio": int(precio),
+            "descripcion": descripcion.strip(),
+        }
+        # Sólo se toca la foto si subieron una nueva: si no, se conserva la que había.
+        if foto:
+            datos["imagen_base64"] = catalogo.preparar_imagen(foto)
+        catalogo.actualizar_producto(prod["id"], datos)
+        st.success("Producto actualizado.")
+        st.rerun()
+
+    if st.button("Borrar este producto", key=f"del_{prod['id']}", width="stretch"):
+        catalogo.borrar_producto(prod["id"])
         st.rerun()
 
 

@@ -3,16 +3,50 @@
 El cliente ve la foto, el nombre y el precio de cada producto, y con un toque abre
 WhatsApp con el mensaje ya escrito preguntando por ese producto en concreto -- no tiene
 que buscar el número ni explicar qué quiere.
+
+De dónde salen los productos: de la base de datos, que es lo que el barbero edita desde
+Ajustes. Si esa tabla todavía no existe (falta correr la migración 003), se cae a la
+lista fija de `app/productos.py`, que es como estaba antes -- así el catálogo nunca
+aparece vacío por un paso de instalación pendiente.
 """
 import streamlit as st
 
-from app import db
-from app.productos import PRODUCTOS
+from app import catalogo, db
+from app.productos import PRODUCTOS as PRODUCTOS_FIJOS
 from app.ui import tema, volver
 
 
 def _pesos(valor: int) -> str:
     return "$" + f"{valor:,.0f}".replace(",", ".")
+
+
+def _lista_de_productos() -> list[dict]:
+    """Normaliza las dos fuentes a la misma forma: nombre, precio, descripción e
+    imagen ya lista para incrustar."""
+    de_la_base = catalogo.productos()
+    if de_la_base:
+        return [
+            {
+                "nombre": p["nombre"],
+                "precio": p["precio"],
+                "descripcion": p.get("descripcion") or "",
+                "imagen_src": (
+                    f"data:image/jpeg;base64,{p['imagen_base64']}"
+                    if p.get("imagen_base64") else ""
+                ),
+            }
+            for p in de_la_base
+        ]
+
+    return [
+        {
+            "nombre": p["nombre"],
+            "precio": p["precio"],
+            "descripcion": p["descripcion"],
+            "imagen_archivo": f"assets/productos/{p['imagen']}",
+        }
+        for p in PRODUCTOS_FIJOS
+    ]
 
 
 def render():
@@ -28,13 +62,20 @@ def render():
     )
     volver.encima_del_hero()
 
-    for producto in PRODUCTOS:
+    lista = _lista_de_productos()
+    if not lista:
+        tema.aviso_vacio("Todavía no hay productos publicados.")
+        tema.pie_de_pagina(negocio)
+        return
+
+    for producto in lista:
         tema.tarjeta_producto(
             nombre=producto["nombre"],
             precio=_pesos(producto["precio"]),
             descripcion=producto["descripcion"],
-            imagen=f"assets/productos/{producto['imagen']}",
+            imagen=producto.get("imagen_archivo", ""),
             url_whatsapp=tema.url_whatsapp(telefono, producto["nombre"]),
+            imagen_src=producto.get("imagen_src", ""),
         )
 
     st.markdown(

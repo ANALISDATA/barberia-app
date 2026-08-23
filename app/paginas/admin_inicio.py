@@ -11,7 +11,7 @@ from datetime import datetime, time, timedelta
 
 import streamlit as st
 
-from app import db
+from app import catalogo, db
 from app.disponibilidad import (
     analizar_jornada,
     descansos_efectivos,
@@ -19,7 +19,7 @@ from app.disponibilidad import (
     proximo_espacio,
 )
 from app.ui import menu, tema
-from config import NOMBRES_DIA, NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
+from config import NOMBRES_DIA, ZONA_HORARIA, fecha_larga
 
 
 def _pesos(valor: int) -> str:
@@ -59,7 +59,7 @@ def render():
     descansos = db.obtener_descansos()
     excepciones = db.obtener_excepciones(hoy, hoy)
     citas_hoy = db.obtener_citas_del_dia(hoy)
-    duracion = db.obtener_duracion_cita()
+    duracion = catalogo.duracion_mas_larga()
 
     ocupadas = [
         (time.fromisoformat(c["start_time"]), time.fromisoformat(c["end_time"]))
@@ -231,7 +231,7 @@ def _tabla_reservadas(reservadas, fecha, hoy):
         hora = time.fromisoformat(c["start_time"])
         nombre = (c.get("customers") or {}).get("name", "—")
         telefono = (c.get("customers") or {}).get("phone", "")
-        servicio = NOMBRES_SERVICIO.get(c["service_type"], c["service_type"])
+        servicio = nombres.get(c["service_type"], c["service_type"])
 
         tema.fila_cita(
             hora.strftime("%H:%M"),
@@ -274,7 +274,7 @@ def _consolidado_del_dia(reservadas, fecha):
         for c in sorted(atendidas, key=lambda x: x["start_time"]):
             hora = time.fromisoformat(c["start_time"]).strftime("%H:%M")
             nombre = (c.get("customers") or {}).get("name", "—")
-            servicio = NOMBRES_SERVICIO.get(c["service_type"], c["service_type"])
+            servicio = nombres.get(c["service_type"], c["service_type"])
             nuevos[c["id"]] = st.number_input(
                 f"{hora} · {nombre} · {servicio}",
                 min_value=0,
@@ -336,7 +336,8 @@ def _tabla_disponibles(libres, fecha, hoy, duracion):
 
 def _formulario_en_linea(fecha, hora, duracion, clave):
     """Formulario corto pegado a la hora elegida: nombre, teléfono y servicio."""
-    servicios = {s["type"]: s for s in db.obtener_servicios()}
+    servicios = {s["type"]: s for s in catalogo.servicios()}
+    nombres = catalogo.nombres_servicios()
     negocio = db.obtener_negocio()
 
     with st.form(f"form_rapido_{clave}"):
@@ -349,7 +350,7 @@ def _formulario_en_linea(fecha, hora, duracion, clave):
         tipo = st.radio(
             "Servicio",
             options=list(servicios.keys()),
-            format_func=lambda t: NOMBRES_SERVICIO.get(t, t),
+            format_func=lambda t: nombres.get(t, t),
             horizontal=True,
             key=f"s_{clave}",
         )

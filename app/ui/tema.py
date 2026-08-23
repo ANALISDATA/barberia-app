@@ -961,11 +961,18 @@ def _imagen_incrustada(ruta: str) -> str:
 
 
 def tarjeta_producto(
-    nombre: str, precio: str, descripcion: str, imagen: str, url_whatsapp: str
+    nombre: str, precio: str, descripcion: str, imagen: str, url_whatsapp: str,
+    imagen_src: str = "",
 ):
+    """`imagen_src` es una imagen ya lista (data URI) -- la que viene de la base de
+    datos. Si no se pasa, se lee del disco la ruta de `imagen`, que es como funcionaba
+    cuando los productos estaban fijos en el código."""
     try:
-        src = _imagen_incrustada(imagen)
-        foto = f'<div class="producto-foto"><img src="{src}" alt="{nombre}"></div>'
+        src = imagen_src or (_imagen_incrustada(imagen) if imagen else "")
+        foto = (
+            f'<div class="producto-foto"><img src="{src}" alt="{nombre}"></div>'
+            if src else ""
+        )
     except FileNotFoundError:
         # Si falta la foto, la tarjeta sigue siendo útil (nombre, precio y contacto).
         foto = ""

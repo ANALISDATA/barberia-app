@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import streamlit as st
 
-from app import db
+from app import catalogo, db
 from app.indicadores import (
     clientes_nuevos,
     mejor_dia,
@@ -19,7 +19,7 @@ from app.indicadores import (
     top_clientes,
 )
 from app.ui import graficos, menu, tema
-from config import NOMBRES_DIA, NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
+from config import NOMBRES_DIA, ZONA_HORARIA, fecha_larga
 
 PERIODOS = ["Hoy", "Esta semana", "Este mes", "Todo"]
 
@@ -115,7 +115,7 @@ def _top_clientes(citas, desde):
 
     for c in top:
         ultima = c.ultima_visita.strftime("%d/%m") if c.ultima_visita else "—"
-        servicio = NOMBRES_SERVICIO.get(c.ultimo_servicio, c.ultimo_servicio)
+        servicio = catalogo.nombres_servicios().get(c.ultimo_servicio, c.ultimo_servicio)
         tema.fila_cita(
             str(c.cortes),
             c.nombre,

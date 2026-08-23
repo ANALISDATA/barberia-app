@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import streamlit as st
 
-from app import db
+from app import catalogo, db
 from app.disponibilidad import analizar_jornada
 from app.indicadores import mejor_dia, por_dia, resumir, semana_de
 from app.ui import graficos, menu, tema
@@ -88,7 +88,7 @@ def _detalle(r, lunes, domingo, dias):
     horario = db.obtener_horario_semanal()
     descansos = db.obtener_descansos()
     excepciones = db.obtener_excepciones(lunes, domingo)
-    duracion = db.obtener_duracion_cita()
+    duracion = catalogo.duracion_mas_larga()
     hoy = datetime.now(ZONA_HORARIA).date()
     espacios = 0
     for dia, _ in dias:

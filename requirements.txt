@@ -10,3 +10,8 @@ supabase>=2.9,<3        # base de datos compartida (citas, clientes, horarios)
 pandas>=2.2,<4           # tablas del panel (citas, clientes, estadisticas)
 python-dateutil>=2.9,<3  # calculo de horarios disponibles
 altair>=5,<7              # graficas del dashboard (cortes por dia)
+
+# Encoge las fotos de los productos antes de guardarlas. Streamlit ya la arrastra como
+# dependencia suya, pero se declara igual: la app la importa directamente y no debe
+# depender de que otra libreria la siga trayendo manana.
+pillow>=10,<12

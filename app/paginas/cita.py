@@ -12,10 +12,10 @@ from datetime import date, datetime, time, timedelta
 
 import streamlit as st
 
-from app import db
+from app import catalogo, db
 from app.disponibilidad import horarios_disponibles
 from app.ui import tema, volver
-from config import NOMBRES_SERVICIO, ZONA_HORARIA, fecha_larga
+from config import ZONA_HORARIA, fecha_larga
 
 PASOS = ["Día", "Servicio", "Hora", "Datos"]
 
@@ -88,9 +88,9 @@ def render():
         _paso_exito(negocio)
         return
 
-    servicios = {s["type"]: s for s in db.obtener_servicios()}
+    servicios = {s["type"]: s for s in catalogo.servicios()}
+    nombres = catalogo.nombres_servicios()
     horario_semanal = db.obtener_horario_semanal()
-    duracion = db.obtener_duracion_cita()
 
     tema.hero_simple(
         titulo="Pide tu cita",
@@ -125,7 +125,7 @@ def render():
     tipo = st.segmented_control(
         "Servicio",
         options=list(servicios.keys()),
-        format_func=lambda t: NOMBRES_SERVICIO.get(t, t),
+        format_func=lambda t: nombres.get(t, t),
         default=list(servicios.keys())[0],
         key="reserva_servicio",
         label_visibility="collapsed",
@@ -134,6 +134,11 @@ def render():
     # segmented_control devuelve None si se deselecciona: se vuelve al primero para no
     # quedar sin servicio elegido y con la pantalla en blanco sin explicación.
     tipo = tipo or list(servicios.keys())[0]
+
+    # Cada servicio dura lo suyo: las horas que se le ofrecen al cliente se calculan con
+    # el tiempo de ESE servicio, no con uno fijo para todos. Así unas cejas de 15 min no
+    # bloquean 45 minutos de agenda.
+    duracion = servicios[tipo].get("duration_minutes") or 45
 
     # El precio NO se le muestra al cliente: el barbero no le cobra lo mismo a todo el
     # mundo. Se sigue guardando en la cita (precio historico) porque de ahi salen los
@@ -154,7 +159,7 @@ def render():
     tema.seccion("¿A qué hora?", eyebrow="Paso 3 de 4", compacta=False)
     tema.resumen_seleccion([
         ("Día", fecha.strftime("%d/%m")),
-        ("Servicio", NOMBRES_SERVICIO.get(tipo, tipo)),
+        ("Servicio", nombres.get(tipo, tipo)),
         ("Duración", f"{duracion} min"),
     ])
 
@@ -183,7 +188,7 @@ def render():
     tema.resumen_seleccion([
         ("Día", fecha.strftime("%d/%m")),
         ("Hora", _hora_compacta(hora_elegida)),
-        ("Servicio", NOMBRES_SERVICIO.get(tipo, tipo)),
+        ("Servicio", nombres.get(tipo, tipo)),
     ])
 
     with st.form("form_datos_cliente"):
@@ -252,7 +257,8 @@ def _paso_exito(negocio: dict):
         f'<div class="ticket">'
         f'<div class="dia">{fecha_larga(fecha)}</div>'
         f'<div class="hora-grande">{_hora_bonita(hora)}</div>'
-        f'<div class="detalle">{NOMBRES_SERVICIO.get(cita["service_type"], "")}</div>'
+        f'<div class="detalle">'
+        f'{catalogo.nombres_servicios().get(cita["service_type"], "")}</div>'
         f"</div>",
         unsafe_allow_html=True,
     )
