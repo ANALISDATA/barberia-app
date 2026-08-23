@@ -97,20 +97,33 @@ lista `PAGINAS` de esa prueba.**
 `business.pricing_mode`) y lo guarda tal cual en `price_at_booking`. Nunca se
 recalcula al leer una cita vieja, ni siquiera si después cambia el precio en `services`.
 
+## Ya construido y en producción
+
+Publicada en https://esteban-barber.streamlit.app (panel en `/admin`).
+
+- Portada, página de reserva (`/cita`) y catálogo de productos (`/productos`).
+- Panel: agenda del día en dos tablas (reservadas / disponibles) con filtro por día de
+  la semana, próximo espacio, consolidado de precios editable, estadísticas de día,
+  semana y mes con gráficas (`app/ui/graficos.py`).
+- Configuración (`/configuracion`): duración de la cita, precios, horario y descansos
+  día por día, y datos del negocio. Ya no hace falta entrar a Supabase para nada.
+
 ## Pendiente (no construido todavía)
 
-- Calendario semanal/vista día en el panel.
-- Sección Clientes con historial (`db.historial_cliente` ya existe, falta la página).
-- Sección Horarios/Configuración editable desde el panel (hoy se edita directo en
-  Supabase Table Editor).
-- Estadísticas semana/mes + gráfica (Altair ya está en requirements.txt, sin usar aún).
-- Alertas de espacio libre + sonido (§25-28 del prompt original). En Streamlit esto
-  necesita `st.fragment(run_every=...)` o similar para revisar cambios periódicamente
-  -- no hay Realtime nativo como en la app web. Diseñar antes de implementar.
-- Desplegar en Streamlit Community Cloud para tener el enlace público 24/7 (mientras
-  tanto la app solo funciona con el computador del usuario encendido).
-- Cancelación desde el propio cliente vía `cancel_token` (la función `db.cancelar_por_token`
-  ya existe, falta la página/ruta pública que la use).
+Ordenado por lo que más pidió el usuario en el prompt original:
+
+- **Alertas de espacio libre + sonido (§25-28), marcado "MUY IMPORTANTE".** En Streamlit
+  no hay Realtime: hay que revisar cada cierto tiempo con `st.fragment(run_every=...)`.
+  El sonido en celular no suena hasta que el usuario toca algo en la página (regla de
+  los navegadores), así que hace falta un "activar sonido" la primera vez. Diseñar
+  antes de implementar.
+- **Cancelación desde el propio cliente (§44)** vía `cancel_token`. `db.cancelar_por_token`
+  ya existe; falta la página pública que la use y la regla de las 3 horas.
+- **Sección Clientes con historial (§36-38).** `db.historial_cliente` ya existe, falta
+  la página: cuántos cortes, última visita, último servicio, total gastado.
+- Excepciones de horario por fecha (§12): la tabla y el motor ya las soportan, falta
+  poder crearlas desde Configuración.
+- PWA / instalable en el celular (§33).
 
 ## Usuario
 
