@@ -17,7 +17,13 @@ from app.navegacion import (
     productos,
 )
 
-st.set_page_config(page_title="Barbería", page_icon="💈", layout="centered")
+# El titulo no es un detalle: es lo que se ve EN GRANDE cuando el barbero pega el
+# enlace en WhatsApp. "Barbería" a secas no dice de quien es ni donde queda.
+st.set_page_config(
+    page_title="Esteban Barber · Barbería en Copacabana",
+    page_icon="💈",
+    layout="centered",
+)
 
 # admin_login (/admin) y admin_inicio (/panel) tienen URLs distintas a proposito.
 # Probado en vivo: Streamlit no deja que dos paginas compartan un url_path, ni

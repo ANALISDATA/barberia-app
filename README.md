@@ -1,7 +1,12 @@
-# Barbería App
+# Esteban Barber
 
-App de reservas y agenda para la barbería. Un enlace público para que los clientes
-reserven solos, y un panel privado para administrar el día a día.
+Pide tu cita en línea, elige el día y la hora que te sirva. Corte y barba con cita
+previa, sin filas y sin esperas. Cra. 58 # 49A-23, Copacabana.
+
+> Las primeras líneas de este archivo NO son documentación: son el texto que Streamlit
+> Cloud usa como descripción cuando el enlace se comparte por WhatsApp. Se escriben
+> pensando en un cliente de la barbería, no en quien programa. Lo técnico va en
+> `CLAUDE.md`.
 
 ## Primera vez
 
