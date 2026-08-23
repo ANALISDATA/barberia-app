@@ -21,6 +21,9 @@ from datetime import date, datetime, time, timedelta
 # `horarios_disponibles`, para poder cambiarla sin tocar codigo.
 DURACION_MINUTOS = 45
 
+# Fecha de apoyo para hacer cuentas con horas. Ver la nota en `_generar_bloques`.
+_DIA_CUALQUIERA = date(2000, 1, 1)
+
 
 @dataclass(frozen=True)
 class Franja:
@@ -159,7 +162,10 @@ def _generar_bloques(
     bloques: list[Franja] = []
     paso = timedelta(minutes=duracion)
     margen = timedelta(minutes=tolerancia)
-    hoy = date.today()
+    # Fecha cualquiera: sólo se usa para poder sumar minutos a una hora (datetime sabe
+    # sumar, time no). De aquí sólo salen horas, nunca fechas, así que da igual cuál
+    # sea -- NO es la fecha del día que se está calculando.
+    hoy = _DIA_CUALQUIERA
 
     for rato_inicio, rato_fin, se_puede_pasar in _ratos_libres(
         apertura, cierre, descansos, list(citas)
@@ -245,7 +251,7 @@ def analizar_jornada(
 
     bloques = _generar_bloques(horario.apertura, horario.cierre, horario.descansos, duracion)
     huecos: list[Hueco] = []
-    hoy = date.today()
+    hoy = _DIA_CUALQUIERA  # ver la nota de _generar_bloques
 
     def minutos_entre(a: time, b: time) -> int:
         return int(

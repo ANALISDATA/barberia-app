@@ -111,11 +111,14 @@ def _bloque_proximo_espacio(siguiente, libres, duracion):
     )
     # Manda a la tabla de disponibles con el formulario de ESA hora ya abierto, en vez
     # de a un formulario suelto al final de la página.
-    from datetime import date as _date
-
+    #
+    # La fecha se toma de la hora de COLOMBIA, no del servidor: Streamlit Cloud corre en
+    # UTC, así que después de las 7 de la noche `date.today()` ya devolvía el día
+    # siguiente. La clave no coincidía con la de la tabla y el botón no hacía nada.
     if st.button("＋ Crear cita en este espacio", type="primary", width="stretch"):
+        hoy_colombia = datetime.now(ZONA_HORARIA).date()
         st.session_state["vista_agenda"] = "disponibles"
-        st.session_state["agendando_en"] = f"{_date.today()}_{siguiente.inicio}"
+        st.session_state["agendando_en"] = f"{hoy_colombia}_{siguiente.inicio}"
         st.rerun()
 
 

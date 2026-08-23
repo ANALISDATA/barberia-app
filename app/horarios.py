@@ -71,10 +71,9 @@ def ratos_muertos(
     Se calcula como "todo lo que NO es un bloque vendible", así que por construcción
     siempre cuadra con lo que la app ofrece. Devuelve [(inicio, fin, minutos)].
     """
-    from datetime import date as _date
     from datetime import datetime as _dt
 
-    from app.disponibilidad import resolver_horario_del_dia
+    from app.disponibilidad import _DIA_CUALQUIERA, resolver_horario_del_dia
 
     horario = resolver_horario_del_dia(
         fecha, horario_semanal, descansos_por_dia, excepciones
@@ -87,7 +86,8 @@ def ratos_muertos(
         ahora=None, duracion=duracion, tolerancia=tolerancia,
     )
 
-    hoy = _date.today()
+    # Fecha de apoyo para restar horas; de aquí sólo salen minutos.
+    hoy = _DIA_CUALQUIERA
 
     def minutos_entre(a, b):
         return int((_dt.combine(hoy, b) - _dt.combine(hoy, a)).total_seconds() // 60)
