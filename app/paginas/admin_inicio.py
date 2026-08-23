@@ -12,7 +12,7 @@ from datetime import datetime, time, timedelta
 import streamlit as st
 
 from app import catalogo, db, horarios, margen
-from app.disponibilidad import analizar_jornada, descansos_efectivos
+from app.disponibilidad import analizar_jornada
 from app.ui import menu, tema
 from config import NOMBRES_DIA, ZONA_HORARIA, fecha_larga
 
@@ -130,10 +130,14 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
     tema.seccion("Agenda", eyebrow="Elige el día", compacta=True)
     fecha = _selector_de_dia(hoy)
 
-    bloques, huecos = analizar_jornada(
-        fecha, horario_semanal, descansos, excepciones, duracion
+    # Capacidad y ratos muertos se piden a `horarios`, que usa las mismas reglas que
+    # las horas ofrecidas (margen incluido). Con `analizar_jornada` el panel decía que
+    # cabían 14 cortes mientras la app ofrecía 15.
+    tol = margen.minutos()
+    caben = horarios.capacidad(
+        fecha, horario_semanal, descansos, excepciones, duracion, tol
     )
-    if not bloques:
+    if not caben:
         tema.aviso_vacio("Ese día la barbería no abre.")
         return
 
@@ -151,7 +155,7 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
         tolerancia=margen.minutos(),
     )
 
-    st.caption(f"Ese día caben {len(bloques)} cortes en total.")
+    st.caption(f"Ese día caben {caben} cortes en total.")
     vista = _selector_de_vista(len(reservadas), len(libres))
 
     if vista == "reservadas":
@@ -159,17 +163,13 @@ def _bloque_agenda(hoy, ahora, horario_semanal, descansos, excepciones, duracion
     else:
         _tabla_disponibles(libres, fecha, hoy, duracion)
 
-    muertos = descansos_efectivos(fecha, horario_semanal, descansos, excepciones, duracion)
-    for inicio_m, fin_m in muertos:
+    muertos = horarios.ratos_muertos(
+        fecha, horario_semanal, descansos, excepciones, duracion, tol
+    )
+    for inicio_m, fin_m, minutos_m in muertos:
         tema.fila_descanso(
-            f"{inicio_m.strftime('%H:%M')} – {fin_m.strftime('%H:%M')}", "Descanso"
-        )
-
-    sobrante = sum(h.minutos for h in huecos if not h.es_descanso)
-    if sobrante:
-        st.caption(
-            f"Tu horario deja {sobrante} minutos que no alcanzan para otro corte de "
-            f"{duracion}. Se suman al descanso para que no queden sueltos a mitad del día."
+            f"{inicio_m.strftime('%H:%M')} – {fin_m.strftime('%H:%M')}",
+            f"Descanso · {minutos_m} min",
         )
 
     _consolidado_del_dia(reservadas, fecha)

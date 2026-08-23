@@ -45,6 +45,65 @@ def libres(
     )
 
 
+def capacidad(
+    fecha, horario_semanal, descansos_por_dia, excepciones, duracion=45, tolerancia=0
+) -> int:
+    """Cuántos cortes caben en el día si estuviera vacío.
+
+    Se calcula con las MISMAS reglas que las horas que se ofrecen (incluido el margen
+    sobre el descanso). Antes se usaba `analizar_jornada`, que no conoce el margen: la
+    app ofrecía 15 cortes y el panel decía que cabían 14. Dos números distintos para la
+    misma pregunta es peor que no dar ninguno.
+    """
+    return len(
+        libres(
+            fecha, horario_semanal, descansos_por_dia, excepciones, [],
+            ahora=None, duracion=duracion, tolerancia=tolerancia,
+        )
+    )
+
+
+def ratos_muertos(
+    fecha, horario_semanal, descansos_por_dia, excepciones, duracion=45, tolerancia=0
+):
+    """Los ratos del día que no se pueden vender: descansos y lo que sobra.
+
+    Se calcula como "todo lo que NO es un bloque vendible", así que por construcción
+    siempre cuadra con lo que la app ofrece. Devuelve [(inicio, fin, minutos)].
+    """
+    from datetime import date as _date
+    from datetime import datetime as _dt
+
+    from app.disponibilidad import resolver_horario_del_dia
+
+    horario = resolver_horario_del_dia(
+        fecha, horario_semanal, descansos_por_dia, excepciones
+    )
+    if horario.cerrado or horario.apertura is None or horario.cierre is None:
+        return []
+
+    bloques = libres(
+        fecha, horario_semanal, descansos_por_dia, excepciones, [],
+        ahora=None, duracion=duracion, tolerancia=tolerancia,
+    )
+
+    hoy = _date.today()
+
+    def minutos_entre(a, b):
+        return int((_dt.combine(hoy, b) - _dt.combine(hoy, a)).total_seconds() // 60)
+
+    muertos = []
+    cursor = horario.apertura
+    for b in bloques:
+        if b.inicio > cursor:
+            muertos.append((cursor, b.inicio, minutos_entre(cursor, b.inicio)))
+        cursor = max(cursor, b.fin)
+    if cursor < horario.cierre:
+        muertos.append((cursor, horario.cierre, minutos_entre(cursor, horario.cierre)))
+
+    return muertos
+
+
 def proximo(
     fecha,
     horario_semanal,

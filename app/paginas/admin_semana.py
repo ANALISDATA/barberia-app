@@ -13,8 +13,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import streamlit as st
 
-from app import catalogo, db
-from app.disponibilidad import analizar_jornada
+from app import catalogo, db, horarios, margen
 from app.indicadores import mejor_dia, por_dia, resumir, semana_de
 from app.ui import graficos, menu, tema
 from config import NOMBRES_DIA, ZONA_HORARIA
@@ -94,8 +93,9 @@ def _detalle(r, lunes, domingo, dias):
     for dia, _ in dias:
         if dia > hoy:
             continue
-        bloques, _huecos = analizar_jornada(dia, horario, descansos, excepciones, duracion)
-        espacios += len(bloques)
+        espacios += horarios.capacidad(
+            dia, horario, descansos, excepciones, duracion, margen.minutos()
+        )
 
     ocupacion = r.ocupacion_sobre(espacios)
 

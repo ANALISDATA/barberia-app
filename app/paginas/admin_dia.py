@@ -9,7 +9,6 @@ from datetime import datetime, time
 import streamlit as st
 
 from app import catalogo, db, horarios, margen
-from app.disponibilidad import analizar_jornada
 from app.indicadores import resumir
 from app.ui import graficos, menu, tema
 from config import ZONA_HORARIA, fecha_larga
@@ -53,8 +52,9 @@ def render():
         hoy, horario, descansos, excepciones, ocupadas, ahora=ahora,
         duracion=duracion, tolerancia=margen.minutos(),
     )
-    bloques, _ = analizar_jornada(hoy, horario, descansos, excepciones, duracion)
-    espacios_del_dia = len(bloques)
+    espacios_del_dia = horarios.capacidad(
+        hoy, horario, descansos, excepciones, duracion, margen.minutos()
+    )
 
     tema.saludo("Hoy", fecha_larga(hoy))
 
