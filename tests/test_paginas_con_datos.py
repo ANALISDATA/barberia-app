@@ -17,7 +17,7 @@ a internet.
 
 Corre con:  python -m pytest tests/test_paginas_con_datos.py -v
 """
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 
 import sys
 from pathlib import Path
@@ -212,3 +212,92 @@ def test_el_consolidado_aparece_cuando_hay_citas_atendidas(dia_normal):
     etiquetas = [e.label for e in at.number_input]
     assert etiquetas, "No se pintó el consolidado del día pese a haber citas atendidas."
     assert any("Corte" in e for e in etiquetas)
+
+
+# ---------------------------------------------------------------------------
+# El camino completo del cliente
+# ---------------------------------------------------------------------------
+
+def _confirmar(at):
+    """El botón de confirmar del formulario. Se busca por su texto porque los botones
+    de dentro de un `st.form` no tienen clave propia en el banco de pruebas."""
+    for boton in at.button:
+        if "Confirmar" in (boton.label or ""):
+            return boton
+    raise AssertionError("No apareció el botón de confirmar la cita.")
+
+
+def test_un_cliente_puede_pedir_su_cita_de_principio_a_fin(dia_normal, monkeypatch):
+    """La prueba más importante del proyecto: si esto se rompe, la barbería no recibe
+    citas. Recorre lo mismo que haría una persona -- elegir el día, tocar una hora,
+    escribir su nombre y su teléfono, y confirmar.
+
+    Antes esto sólo se probaba a mano abriendo el navegador, así que un fallo en el
+    formulario se descubría cuando un cliente se quedaba sin poder reservar.
+    """
+    from app import db
+
+    guardadas = []
+
+    def _crear_cita_falsa(**datos):
+        guardadas.append(datos)
+        return {
+            "id": "cita-nueva",
+            "date": datos["fecha"].isoformat(),
+            "start_time": datos["hora_inicio"].isoformat(),
+            "end_time": datos["hora_fin"].isoformat(),
+            "service_type": datos["tipo_servicio"],
+            "price_at_booking": datos["precio"],
+            "status": "confirmada",
+        }
+
+    monkeypatch.setattr(db, "crear_cita", _crear_cita_falsa)
+
+    at = AppTest.from_file("app/paginas/cita.py", default_timeout=60)
+    at.run()
+    assert not at.exception, f"La página de pedir cita reventó al abrirla: {at.exception}"
+
+    # Mañana, para no depender de la hora a la que se corra la prueba: hoy a las 7 de la
+    # noche ya casi no quedan horas libres y la prueba fallaría sin que nada esté roto.
+    at.date_input[0].set_value(HOY + timedelta(days=1)).run()
+    assert not at.exception
+
+    horas = [b for b in at.button if b.key and b.key.startswith("hora_")]
+    assert horas, "No se ofreció ninguna hora libre en un día completamente abierto."
+
+    horas[0].click().run()
+    assert not at.exception, f"Reventó al elegir la hora: {at.exception}"
+
+    campos = at.text_input
+    assert len(campos) >= 2, "No apareció el formulario de datos tras elegir la hora."
+    campos[0].set_value("Carlos Pérez")
+    campos[1].set_value("3145900531")
+    _confirmar(at).click().run()
+
+    assert not at.exception, f"Reventó al confirmar la cita: {at.exception}"
+    assert guardadas, "Se pulsó confirmar y la cita nunca llegó a guardarse."
+    assert guardadas[0]["nombre"] == "Carlos Pérez"
+    assert guardadas[0]["fecha"] == HOY + timedelta(days=1)
+
+    texto = " ".join(str(e.value) for e in at.markdown)
+    assert "Nos vemos" in texto, "No se mostró la pantalla de cita confirmada."
+
+
+def test_no_deja_confirmar_sin_nombre_ni_telefono(dia_normal, monkeypatch):
+    """Una cita sin teléfono es una cita a la que no se le puede avisar nada."""
+    from app import db
+
+    monkeypatch.setattr(db, "crear_cita", lambda **_k: pytest.fail(
+        "Guardó una cita sin nombre ni teléfono."
+    ))
+
+    at = AppTest.from_file("app/paginas/cita.py", default_timeout=60)
+    at.run()
+    at.date_input[0].set_value(HOY + timedelta(days=1)).run()
+    horas = [b for b in at.button if b.key and b.key.startswith("hora_")]
+    horas[0].click().run()
+
+    _confirmar(at).click().run()
+
+    assert not at.exception
+    assert at.error, "No avisó de que faltaban los datos."
