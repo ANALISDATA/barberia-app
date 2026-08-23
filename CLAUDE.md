@@ -89,6 +89,36 @@ que tiene que reiniciar la app** desde Streamlit Cloud después de publicar.
 Y siempre: **después de CADA push, correr `Comprobar_App_En_Linea.py`.** Que las pruebas
 locales pasen no dice nada sobre si la app está arriba. Esta app tiene que estar 24/7.
 
+## Trampa: probar sólo "sin datos" deja media app sin probar
+
+**Esto tumbó la agenda del panel el 23/08/2026** con un `NameError`: dos funciones
+usaban `nombres` (los nombres bonitos de los servicios) sin tenerla definida. Sólo
+reventaba cuando el día tenía **al menos una cita**.
+
+Se escapó porque las pruebas que había (`test_paginas_sin_conexion.py`) corren las
+páginas con Supabase apagado, y sin conexión las páginas se salen temprano con un
+aviso: la mitad del código nunca llegaba a ejecutarse. Y el comprobador en línea sólo
+miraba las tres páginas públicas, así que decía "todo en orden" con el panel caído.
+
+Las dos cosas ya están cubiertas:
+
+- `tests/test_paginas_con_datos.py` pinta las nueve páginas con un día de trabajo de
+  verdad (citas atendidas, confirmadas, canceladas y un plantón) y recorre entero el
+  camino del cliente al pedir cita. **Si se agrega una página, agregarla a esa lista.**
+  El horario de prueba está abierto los siete días a propósito: con el domingo cerrado
+  la prueba se saltaba medio código justo los domingos.
+- `Comprobar_App_En_Linea.py` ahora entra al panel con la contraseña de
+  `.streamlit/secrets.toml` y recorre sus seis pantallas **pulsando el menú** (cambiar
+  la dirección a mano recarga el navegador y Streamlit pierde la sesión).
+
+Y antes de publicar, un repaso estático encuentra este tipo de fallo en un segundo:
+
+```
+python -m pyflakes Aplicacion.py config.py app/ tests/ *.py
+```
+
+Tiene que salir vacío. Es lo que detectó los dos `undefined name` de este caso.
+
 ## Trampa ya encontrada: `st.secrets.get()` no es un dict seguro
 
 `st.secrets.get("x")` **lanza** `StreamlitSecretNotFoundError` (no devuelve `None`) si
