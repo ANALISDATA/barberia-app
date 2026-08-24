@@ -112,7 +112,14 @@ def buscar(hoy: date, dias: int = DIAS_POR_DEFECTO) -> list[ClienteDormido]:
 
         recordado = cli.get("ultimo_recordatorio")
         recordado = date.fromisoformat(recordado) if recordado else None
-        if recordado and (hoy - recordado).days < DESCANSO_ENTRE_MENSAJES:
+
+        # El descanso entre mensajes sólo cuenta si el mensaje se quedó SIN respuesta.
+        # Si la persona vino después de que se le escribió, el mensaje cumplió y la
+        # cuenta vuelve a cero. Sin esta condición, un cliente que se motila cada ocho
+        # días desaparecía de la lista veinte días por haberle escrito una vez -- justo
+        # al revés de lo que se busca.
+        sin_respuesta = recordado is not None and recordado > ultima_visita[cid]
+        if sin_respuesta and (hoy - recordado).days < DESCANSO_ENTRE_MENSAJES:
             continue
 
         dormidos.append(

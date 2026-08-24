@@ -158,3 +158,32 @@ def test_el_enlace_no_usa_wa_me_porque_daña_los_emojis():
 def test_sin_telefono_no_hay_enlace():
     c = recordatorios.ClienteDormido("1", "Ana", "", HOY, 1, "sin_barba", None)
     assert recordatorios.url_whatsapp(c, "hola") == ""
+
+
+# ---------------------------------------------------------------------------
+# El cliente que se motila cada ocho días
+# ---------------------------------------------------------------------------
+
+def test_entra_quien_lleva_ocho_dias_si_se_pide_asi(montar):
+    """Hay gente que se motila todos los sábados. A los 15 días ya llevan dos turnos
+    perdidos, así que el barbero tiene que poder bajar el listón a 8."""
+    montar([cliente("a")], [cita("a", 9)])
+    assert len(recordatorios.buscar(HOY, dias=8)) == 1
+    assert recordatorios.buscar(HOY, dias=15) == []
+
+
+def test_el_que_volvio_tras_el_mensaje_puede_recibir_otro_a_los_ocho_dias(montar):
+    """El caso que hacía inútiles los 8 días: se le escribe, viene, y a los ocho días
+    vuelve a estar listo. El descanso entre mensajes no debe castigarlo por haber
+    hecho caso -- ese descanso existe para no insistirle a quien NO responde."""
+    escrito = (HOY - timedelta(days=12)).isoformat()   # se le escribió hace 12 días
+    montar([cliente("a", recordado=escrito)], [cita("a", 10)])  # y vino hace 10
+    assert len(recordatorios.buscar(HOY, dias=8)) == 1
+
+
+def test_al_que_no_respondio_si_se_le_respeta_el_descanso(montar):
+    """El otro lado de lo mismo: si se le escribió y NO vino, no se le vuelve a
+    escribir a los ocho días. Insistirle es la forma de que bloquee el número."""
+    escrito = (HOY - timedelta(days=9)).isoformat()    # se le escribió hace 9 días
+    montar([cliente("a", recordado=escrito)], [cita("a", 40)])  # y no ha vuelto
+    assert recordatorios.buscar(HOY, dias=8) == []

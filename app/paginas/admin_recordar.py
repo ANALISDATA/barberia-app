@@ -44,11 +44,15 @@ def render():
             "de hoy."
         )
 
+    # Arranca en 8 porque hay clientes que se motilan todos los sábados: a los 10 días
+    # ya llevan dos semanas de atraso. La clave hace que el panel se acuerde de lo que
+    # elegiste mientras la sesión siga abierta, para no tener que moverlo cada vez.
     dias = st.select_slider(
         "Mostrar a quienes llevan sin venir",
-        options=[10, 15, 20, 30, 45, 60],
+        options=[8, 10, 15, 20, 30, 45, 60],
         value=recordatorios.DIAS_POR_DEFECTO,
         format_func=lambda d: f"{d} días o más",
+        key="recordar_dias",
     )
 
     dormidos = recordatorios.buscar(hoy, dias)
